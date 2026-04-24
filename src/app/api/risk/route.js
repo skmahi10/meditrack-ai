@@ -1,5 +1,5 @@
-import { db } from "../../lib/firebase-admin.js";
-import { generateRiskRecommendation } from "../../lib/gemini.js";
+import { db } from "../../../lib/firebase-admin.js";
+import { generateRiskRecommendation } from "../../../lib/gemini.js";
 
 export const runtime = "nodejs";
 

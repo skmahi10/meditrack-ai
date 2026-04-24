@@ -1,16 +1,16 @@
 import { Timestamp } from "firebase-admin/firestore";
-import { db } from "../../lib/firebase-admin.js";
-import { generateHash, GENESIS_PREV_HASH } from "../../lib/blockchain.js";
+import { db } from "../../../lib/firebase-admin.js";
+import { generateHash, GENESIS_PREV_HASH } from "../../../lib/blockchain.js";
 import {
   generateComplianceReport,
   generateIncidentReport,
   generateRiskRecommendation,
-} from "../../lib/gemini.js";
+} from "../../../lib/gemini.js";
 import {
   sendBreachAlert,
   sendDeliveryConfirmation,
   sendShipmentCreated,
-} from "../../lib/email.js";
+} from "../../../lib/email.js";
 
 export const runtime = "nodejs";
 

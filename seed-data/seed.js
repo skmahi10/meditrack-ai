@@ -3,8 +3,8 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 const { Timestamp } = await import("firebase-admin/firestore");
-const { db } = await import("../app/lib/firebase-admin.js");
-const { generateHash, GENESIS_PREV_HASH } = await import("../app/lib/blockchain.js");
+const { db } = await import("../src/lib/firebase-admin.js");
+const { generateHash, GENESIS_PREV_HASH } = await import("../src/lib/blockchain.js");
 
 const now = new Date("2026-04-24T09:00:00.000Z");
 

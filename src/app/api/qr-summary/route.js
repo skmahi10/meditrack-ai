@@ -1,6 +1,6 @@
-import { db } from "../../lib/firebase-admin.js";
-import { verifyChain } from "../../lib/blockchain.js";
-import { generateQRSummary } from "../../lib/gemini.js";
+import { db } from "../../../lib/firebase-admin.js";
+import { verifyChain } from "../../../lib/blockchain.js";
+import { generateQRSummary } from "../../../lib/gemini.js";
 
 export const runtime = "nodejs";
 

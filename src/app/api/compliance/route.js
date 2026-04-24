@@ -1,5 +1,6 @@
-import { db } from "../../lib/firebase-admin.js";
-import { generateIncidentReport } from "../../lib/gemini.js";
+import { db } from "../../../lib/firebase-admin.js";
+import { verifyChain } from "../../../lib/blockchain.js";
+import { generateComplianceReport } from "../../../lib/gemini.js";
 
 export const runtime = "nodejs";
 
@@ -7,20 +8,22 @@ function jsonError(message, status) {
   return Response.json({ success: false, error: message }, { status });
 }
 
-function determineSeverity(telemetry) {
-  const worstExcursion = telemetry.reduce((max, reading) => {
-    if (!reading.isViolation) return max;
-    return Math.max(max, Math.abs(reading.temperature));
-  }, 0);
-
-  if (worstExcursion >= 20) return "high";
-  if (worstExcursion >= 10) return "moderate";
-  return telemetry.some((reading) => reading.isViolation) ? "moderate" : "low";
-}
-
 async function getShipmentDoc(shipmentId) {
   const snapshot = await db.collection("shipments").where("shipmentId", "==", shipmentId).limit(1).get();
   return snapshot.empty ? null : snapshot.docs[0];
+}
+
+function scoreTelemetry(telemetry) {
+  if (!telemetry.length) return 100;
+  const compliant = telemetry.filter((reading) => !reading.isViolation).length;
+  return Number(((compliant / telemetry.length) * 100).toFixed(1));
+}
+
+function statusFor(score, delivered) {
+  if (!delivered) return "pending";
+  if (score >= 98) return "compliant";
+  if (score >= 85) return "conditional";
+  return "non-compliant";
 }
 
 function timestampMillis(value) {
@@ -29,10 +32,10 @@ function timestampMillis(value) {
 
 export async function POST(request) {
   try {
-    const { shipmentId, eventType } = await request.json();
+    const { shipmentId } = await request.json();
 
-    if (!shipmentId || !eventType) {
-      return jsonError("shipmentId and eventType are required", 400);
+    if (!shipmentId) {
+      return jsonError("shipmentId is required", 400);
     }
 
     const shipmentDoc = await getShipmentDoc(shipmentId);
@@ -57,20 +60,16 @@ export async function POST(request) {
     const blockchain = blockSnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => a.blockNumber - b.blockNumber);
-    const report = await generateIncidentReport({ ...shipment, blockchain }, telemetry, eventType);
-    const severity = determineSeverity(telemetry);
+    const chain = await verifyChain(db, shipmentId);
+    const complianceScore = scoreTelemetry(telemetry);
+    const status = chain.valid ? statusFor(complianceScore, shipment.status === "delivered") : "non-compliant";
+    const summary = await generateComplianceReport(shipment, telemetry, blockchain);
 
-    await shipmentDoc.ref.update({ incidentReport: report });
+    await shipmentDoc.ref.update({ complianceReport: summary });
 
-    return Response.json({
-      report,
-      severity,
-      shipmentId,
-      eventType,
-      timestamp: new Date().toISOString(),
-    });
+    return Response.json({ summary, complianceScore, status, shipmentId });
   } catch (error) {
-    console.error("Incident report failed:", error);
-    return jsonError(error.message || "Incident report failed", 500);
+    console.error("Compliance failed:", error);
+    return jsonError(error.message || "Compliance failed", 500);
   }
 }
