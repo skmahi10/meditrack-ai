@@ -1,323 +1,332 @@
-// src/components/dashboard/LiveMap.jsx
 "use client";
 
-import { shipments } from "@/lib/mockData";
+import { useMemo } from "react";
+import { GoogleMap, useJsApiLoader, Marker, Polyline, InfoWindow } from "@react-google-maps/api";
+import { useState } from "react";
+
+const mapContainerStyle = {
+  width: "100%",
+  height: "360px",
+  borderRadius: "12px",
+};
+
+const darkMapStyles = [
+  { elementType: "geometry", stylers: [{ color: "#12121A" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#12121A" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#5A5A72" }] },
+  { featureType: "administrative", elementType: "geometry.stroke", stylers: [{ color: "#1A1A2E" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#1A1A2E" }] },
+  { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#0A0A0F" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#2A2A3E" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0A0A1A" }] },
+  { featureType: "poi", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", stylers: [{ visibility: "off" }] },
+];
+
+const statusColors = {
+  "in-transit": "#6C63FF",
+  "at-risk": "#FF4757",
+  delivered: "#00D68F",
+  created: "#FFB84D",
+  failed: "#FF4757",
+};
 
 export default function LiveMap({ selectedShipment }) {
-  const active = selectedShipment || shipments[0];
+  const [activeMarker, setActiveMarker] = useState(null);
 
-  const statusColor = {
-    "in-transit": "var(--accent)",
-    "at-risk": "var(--danger)",
-    delivered: "var(--success)",
-    created: "var(--warning)",
-    failed: "var(--danger)",
-  };
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
+  });
 
-  const color = statusColor[active.status] || "var(--accent)";
+  const shipment = selectedShipment;
+
+  const color = statusColors[shipment?.status] || "#6C63FF";
+
+  const center = useMemo(() => {
+    if (!shipment) return { lat: 22.5, lng: 78.0 };
+    if (shipment.status === "delivered") {
+      return { lat: shipment.destination?.lat || 22.5, lng: shipment.destination?.lng || 78.0 };
+    }
+    return {
+      lat: shipment.currentLat || shipment.origin?.lat || 22.5,
+      lng: shipment.currentLng || shipment.origin?.lng || 78.0,
+    };
+  }, [shipment]);
+
+  const routePath = useMemo(() => {
+    if (!shipment) return [];
+    const points = [];
+    if (shipment.origin) points.push({ lat: shipment.origin.lat, lng: shipment.origin.lng });
+    if (shipment.checkpoints) {
+      shipment.checkpoints.forEach((cp) => {
+        if (cp.lat && cp.lng) points.push({ lat: cp.lat, lng: cp.lng });
+      });
+    }
+    if (shipment.destination) points.push({ lat: shipment.destination.lat, lng: shipment.destination.lng });
+    return points;
+  }, [shipment]);
+
+  if (loadError) {
+    return (
+      <div style={{ ...mapContainerStyle, background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: "28px", marginBottom: "8px" }}>{"\u{1F5FA}\u{FE0F}"}</div>
+          <div style={{ fontFamily: "var(--font-ibm)", fontSize: "13px", color: "var(--danger)" }}>Failed to load Google Maps</div>
+          <div style={{ fontFamily: "var(--font-ibm)", fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>Check your API key</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div style={{ ...mapContainerStyle, background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: "32px",
+              height: "32px",
+              border: "3px solid var(--accent-soft)",
+              borderTopColor: "var(--accent)",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+              margin: "0 auto 12px",
+            }}
+          />
+          <div style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)" }}>Loading map...</div>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (!shipment) {
+    return (
+      <div style={{ ...mapContainerStyle, background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontFamily: "var(--font-ibm)", fontSize: "13px", color: "var(--text-muted)" }}>Select a shipment to view tracking</div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      style={{
-        width: "100%",
-        height: "360px",
-        borderRadius: "12px",
-        background: "var(--bg-elevated)",
-        border: "1px solid var(--border-subtle)",
-        position: "relative",
-        overflow: "hidden",
-      }}
-    >
-      {/* Grid Pattern Background */}
-      <div
-        style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage:
-            "linear-gradient(var(--border-subtle) 1px, transparent 1px), linear-gradient(90deg, var(--border-subtle) 1px, transparent 1px)",
-          backgroundSize: "40px 40px",
-          opacity: 0.5,
+    <div style={{ position: "relative" }}>
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        center={center}
+        zoom={6}
+        options={{
+          styles: darkMapStyles,
+          disableDefaultUI: true,
+          zoomControl: true,
+          zoomControlOptions: { position: 9 },
         }}
-      />
-
-      {/* Route Line */}
-      <svg
-        width="100%"
-        height="100%"
-        viewBox="0 0 800 360"
-        style={{ position: "absolute", inset: 0 }}
+        onClick={() => setActiveMarker(null)}
       >
-        <defs>
-          <linearGradient id="routeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.8" />
-            <stop offset={active.progress + "%"} stopColor={color} stopOpacity="0.8" />
-            <stop offset={active.progress + "%"} stopColor="var(--text-muted)" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="var(--text-muted)" stopOpacity="0.3" />
-          </linearGradient>
-        </defs>
-
-        {/* Route path */}
-        <path
-          d="M 100 280 C 200 280, 250 120, 400 140 S 600 200, 700 100"
-          fill="none"
-          stroke="url(#routeGrad)"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-
-        {/* Dashed remaining path */}
-        <path
-          d="M 100 280 C 200 280, 250 120, 400 140 S 600 200, 700 100"
-          fill="none"
-          stroke="var(--text-muted)"
-          strokeWidth="1"
-          strokeDasharray="6 4"
-          opacity="0.2"
-        />
-
-        {/* Origin point */}
-        <circle cx="100" cy="280" r="8" fill={color} opacity="0.2" />
-        <circle cx="100" cy="280" r="4" fill={color} />
-
-        {/* Checkpoints */}
-        {active.checkpoints?.map((cp, idx) => {
-          const x = 100 + ((600 * (idx + 1)) / (active.checkpoints.length + 1));
-          const y = 280 - (140 * (idx + 1)) / (active.checkpoints.length + 1);
-          return (
-            <g key={idx}>
-              <circle cx={x} cy={y} r="6" fill="var(--bg-secondary)" stroke={color} strokeWidth="2" />
-              <text
-                x={x}
-                y={y - 14}
-                textAnchor="middle"
-                fill="var(--text-secondary)"
-                fontSize="11"
-                fontFamily="var(--font-ibm)"
-              >
-                {cp.city}
-              </text>
-            </g>
-          );
-        })}
-
-        {/* Current position (animated) */}
-        {active.status !== "delivered" && (
-          <g>
-            <circle
-              cx={100 + 6 * active.progress}
-              cy={280 - active.progress * 1.6}
-              r="14"
-              fill={color}
-              opacity="0.15"
-            >
-              <animate
-                attributeName="r"
-                values="14;20;14"
-                dur="2s"
-                repeatCount="indefinite"
-              />
-              <animate
-                attributeName="opacity"
-                values="0.15;0.05;0.15"
-                dur="2s"
-                repeatCount="indefinite"
-              />
-            </circle>
-            <circle
-              cx={100 + 6 * active.progress}
-              cy={280 - active.progress * 1.6}
-              r="6"
-              fill={color}
-              stroke="var(--bg-secondary)"
-              strokeWidth="2"
-            />
-          </g>
+        {/* Route Line */}
+        {routePath.length > 1 && (
+          <Polyline
+            path={routePath}
+            options={{
+              strokeColor: color,
+              strokeOpacity: 0.8,
+              strokeWeight: 3,
+              geodesic: true,
+            }}
+          />
         )}
 
-        {/* Destination point */}
-        <circle cx="700" cy="100" r="8" fill={color} opacity="0.2" />
-        <circle cx="700" cy="100" r="4" fill={color} />
-      </svg>
+        {/* Origin Marker */}
+        {shipment.origin && (
+          <Marker
+            position={{ lat: shipment.origin.lat, lng: shipment.origin.lng }}
+            onClick={() => setActiveMarker("origin")}
+            icon={{
+              path: "M-6,0a6,6 0 1,0 12,0a6,6 0 1,0 -12,0",
+              fillColor: color,
+              fillOpacity: 1,
+              strokeColor: "#fff",
+              strokeWeight: 2,
+              scale: 1,
+            }}
+          >
+            {activeMarker === "origin" && (
+              <InfoWindow onCloseClick={() => setActiveMarker(null)}>
+                <div style={{ padding: "4px 8px", fontFamily: "IBM Plex Sans, sans-serif" }}>
+                  <div style={{ fontWeight: 600, fontSize: "13px", color: "#1a1a2e" }}>{shipment.origin.city}</div>
+                  <div style={{ fontSize: "11px", color: "#5a5a72" }}>Origin</div>
+                </div>
+              </InfoWindow>
+            )}
+          </Marker>
+        )}
 
-      {/* Origin Label */}
+        {/* Checkpoint Markers */}
+        {shipment.checkpoints?.map((cp, idx) => (
+          <Marker
+            key={idx}
+            position={{ lat: cp.lat, lng: cp.lng }}
+            onClick={() => setActiveMarker("cp-" + idx)}
+            icon={{
+              path: "M-4,0a4,4 0 1,0 8,0a4,4 0 1,0 -8,0",
+              fillColor: "#fff",
+              fillOpacity: 1,
+              strokeColor: color,
+              strokeWeight: 2,
+              scale: 1,
+            }}
+          >
+            {activeMarker === "cp-" + idx && (
+              <InfoWindow onCloseClick={() => setActiveMarker(null)}>
+                <div style={{ padding: "4px 8px", fontFamily: "IBM Plex Sans, sans-serif" }}>
+                  <div style={{ fontWeight: 600, fontSize: "13px", color: "#1a1a2e" }}>{cp.city}</div>
+                  <div style={{ fontSize: "11px", color: "#5a5a72" }}>Checkpoint {idx + 1}</div>
+                </div>
+              </InfoWindow>
+            )}
+          </Marker>
+        ))}
+
+        {/* Current Position (if not delivered) */}
+        {shipment.status !== "delivered" && shipment.currentLat && shipment.currentLng && (
+          <Marker
+            position={{ lat: shipment.currentLat, lng: shipment.currentLng }}
+            onClick={() => setActiveMarker("current")}
+            icon={{
+              path: "M-8,0a8,8 0 1,0 16,0a8,8 0 1,0 -16,0",
+              fillColor: color,
+              fillOpacity: 0.3,
+              strokeColor: color,
+              strokeWeight: 2,
+              scale: 1,
+            }}
+          >
+            {activeMarker === "current" && (
+              <InfoWindow onCloseClick={() => setActiveMarker(null)}>
+                <div style={{ padding: "4px 8px", fontFamily: "IBM Plex Sans, sans-serif" }}>
+                  <div style={{ fontWeight: 600, fontSize: "13px", color: "#1a1a2e" }}>{shipment.shipmentId}</div>
+                  <div style={{ fontSize: "11px", color: "#5a5a72" }}>
+                    {shipment.currentTemp}{"\u00B0"}C \u2022 {shipment.currentSpeed} km/h \u2022 {shipment.progress}%
+                  </div>
+                </div>
+              </InfoWindow>
+            )}
+          </Marker>
+        )}
+
+        {/* Destination Marker */}
+        {shipment.destination && (
+          <Marker
+            position={{ lat: shipment.destination.lat, lng: shipment.destination.lng }}
+            onClick={() => setActiveMarker("dest")}
+            icon={{
+              path: "M-6,0a6,6 0 1,0 12,0a6,6 0 1,0 -12,0",
+              fillColor: shipment.status === "delivered" ? "#00D68F" : "#fff",
+              fillOpacity: 1,
+              strokeColor: shipment.status === "delivered" ? "#00D68F" : color,
+              strokeWeight: 2,
+              scale: 1,
+            }}
+          >
+            {activeMarker === "dest" && (
+              <InfoWindow onCloseClick={() => setActiveMarker(null)}>
+                <div style={{ padding: "4px 8px", fontFamily: "IBM Plex Sans, sans-serif" }}>
+                  <div style={{ fontWeight: 600, fontSize: "13px", color: "#1a1a2e" }}>{shipment.destination.city}</div>
+                  <div style={{ fontSize: "11px", color: "#5a5a72" }}>Destination</div>
+                </div>
+              </InfoWindow>
+            )}
+          </Marker>
+        )}
+      </GoogleMap>
+
+      {/* Overlay Info Card */}
       <div
         style={{
           position: "absolute",
-          bottom: "40px",
-          left: "60px",
+          top: "12px",
+          left: "12px",
+          background: "var(--bg-glass)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          border: "1px solid var(--border-glass)",
+          borderRadius: "10px",
+          padding: "12px 16px",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
+          gap: "6px",
+          zIndex: 10,
         }}
       >
-        <span
-          style={{
-            fontFamily: "var(--font-ibm)",
-            fontSize: "13px",
-            fontWeight: 600,
-            color: "var(--text-primary)",
-          }}
-        >
-          {active.origin.city}
-        </span>
-        <span
-          style={{
-            fontFamily: "var(--font-ibm)",
-            fontSize: "10px",
-            color: "var(--text-muted)",
-          }}
-        >
-          Origin
-        </span>
-      </div>
-
-      {/* Destination Label */}
-      <div
-        style={{
-          position: "absolute",
-          top: "40px",
-          right: "50px",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          gap: "4px",
-        }}
-      >
-        <span
-          style={{
-            fontFamily: "var(--font-ibm)",
-            fontSize: "13px",
-            fontWeight: 600,
-            color: "var(--text-primary)",
-          }}
-        >
-          {active.destination.city}
-        </span>
-        <span
-          style={{
-            fontFamily: "var(--font-ibm)",
-            fontSize: "10px",
-            color: "var(--text-muted)",
-          }}
-        >
-          Destination
-        </span>
-      </div>
-
-      {/* Current Position Info Card */}
-      {active.status !== "delivered" && (
-        <div
-          style={{
-            position: "absolute",
-            top: "16px",
-            left: "16px",
-            background: "var(--bg-glass)",
-            backdropFilter: "blur(12px)",
-            WebkitBackdropFilter: "blur(12px)",
-            border: "1px solid var(--border-glass)",
-            borderRadius: "10px",
-            padding: "12px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "6px",
-          }}
-        >
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <div
+            className="pulse-dot"
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
+              width: "6px",
+              height: "6px",
+              borderRadius: "50%",
+              background: color,
+              boxShadow: "0 0 8px " + color,
+              animation: shipment.status !== "delivered" ? "pulse 2s infinite" : "none",
             }}
-          >
-            <div className="pulse-dot pulse-dot-accent" style={{ width: "6px", height: "6px" }} />
-            <span
-              style={{
-                fontFamily: "var(--font-ibm)",
-                fontSize: "12px",
-                fontWeight: 500,
-                color: "var(--text-primary)",
-              }}
-            >
-              {active.shipmentId}
-            </span>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              gap: "16px",
-            }}
-          >
-            {[
-              { label: "Temp", value: active.currentTemp + "\u00B0C", color: active.currentTemp > active.tempRange.max ? "var(--danger)" : "var(--success)" },
-              { label: "Speed", value: active.currentSpeed + " km/h", color: "var(--text-primary)" },
-              { label: "Progress", value: active.progress + "%", color: "var(--accent)" },
-            ].map((item) => (
-              <div key={item.label}>
-                <div
-                  style={{
-                    fontFamily: "var(--font-ibm)",
-                    fontSize: "10px",
-                    color: "var(--text-muted)",
-                    marginBottom: "2px",
-                  }}
-                >
-                  {item.label}
-                </div>
-                <div
-                  style={{
-                    fontFamily: "var(--font-outfit)",
-                    fontSize: "14px",
-                    fontWeight: 600,
-                    color: item.color,
-                  }}
-                >
-                  {item.value}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Delivered badge */}
-      {active.status === "delivered" && (
-        <div
-          style={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            background: "var(--success-soft)",
-            border: "1px solid var(--success)",
-            borderRadius: "12px",
-            padding: "16px 28px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}
-        >
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 22 22"
-            fill="none"
-            stroke="var(--success)"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M5 12l4 4 8-8" />
-            <circle cx="11" cy="11" r="9" />
-          </svg>
+          />
+          <span style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", fontWeight: 500, color: "var(--text-primary)" }}>
+            {shipment.shipmentId}
+          </span>
           <span
             style={{
-              fontFamily: "var(--font-outfit)",
-              fontSize: "16px",
+              padding: "2px 8px",
+              borderRadius: "6px",
+              background: color + "20",
+              color: color,
+              fontFamily: "var(--font-ibm)",
+              fontSize: "10px",
               fontWeight: 600,
-              color: "var(--success)",
+              textTransform: "capitalize",
             }}
           >
+            {shipment.status?.replace("-", " ")}
+          </span>
+        </div>
+        <div style={{ display: "flex", gap: "14px" }}>
+          {[
+            { label: "Temp", value: (shipment.currentTemp || "—") + "\u00B0C", color: (shipment.currentTemp > shipment.tempRange?.max || shipment.currentTemp < shipment.tempRange?.min) ? "var(--danger)" : "var(--success)" },
+            { label: "Speed", value: (shipment.currentSpeed || 0) + " km/h", color: "var(--text-primary)" },
+            { label: "Progress", value: (shipment.progress || 0) + "%", color: "var(--accent)" },
+          ].map((item) => (
+            <div key={item.label}>
+              <div style={{ fontFamily: "var(--font-ibm)", fontSize: "9px", color: "var(--text-muted)", marginBottom: "2px" }}>
+                {item.label}
+              </div>
+              <div style={{ fontFamily: "var(--font-outfit)", fontSize: "14px", fontWeight: 600, color: item.color }}>
+                {item.value}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Delivered Badge */}
+      {shipment.status === "delivered" && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "12px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "var(--success-soft)",
+            border: "1px solid var(--success)",
+            borderRadius: "10px",
+            padding: "8px 20px",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            zIndex: 10,
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--success)" strokeWidth="2" strokeLinecap="round">
+            <path d="M3 8l4 4 6-6" />
+          </svg>
+          <span style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", fontWeight: 600, color: "var(--success)" }}>
             Delivered Successfully
           </span>
         </div>
