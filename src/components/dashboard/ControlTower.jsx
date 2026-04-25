@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useShipments } from "@/lib/useFirestore";
-import { shipments as mockShipments, dashboardStats, notifications } from "@/lib/mockData";
 import ShipmentTable from "./ShipmentTable";
 import RiskGauge from "./RiskGauge";
 import TelemetryCharts from "./TelemetryCharts";
@@ -69,7 +68,7 @@ export default function ControlTower() {
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Use Firebase data if available, otherwise fall back to mock
-  const shipments = firebaseShipments.length > 0 ? firebaseShipments : mockShipments;
+  const shipments = firebaseShipments;
   const [selectedShipment, setSelectedShipment] = useState(null);
   const active = selectedShipment || shipments[0];
 
@@ -81,7 +80,7 @@ export default function ControlTower() {
     delivered: shipments.filter((s) => s.status === "delivered").length,
   };
 
-  const unreadAlerts = notifications.filter((n) => !n.read && n.severity === "critical");
+  const unreadAlerts = [];
 
   const cards = statCards(stats);
 
@@ -218,7 +217,7 @@ export default function ControlTower() {
                 Live Shipments
               </h2>
               <p style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)", margin: "2px 0 0 0" }}>
-                {stats.active} active \u00B7 {stats.total} total
+                {stats.active} active {"\u00B7"} {stats.total} total
               </p>
             </div>
             <button
@@ -340,7 +339,7 @@ export default function ControlTower() {
               Live Telemetry — {active?.shipmentId || "No Selection"}
             </h2>
             <p style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)", margin: "2px 0 0 0" }}>
-              Temperature \u00B7 Humidity \u00B7 Speed
+              {"Temperature \u00B7 Humidity \u00B7 Speed"}
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>

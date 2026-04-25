@@ -289,3 +289,194 @@ body {
   background: var(--accent);
   color: #fff;
 }
+
+/* ========== CLERK DARK THEME OVERRIDES ========== */
+.cl-internal-b3fm6y,
+.cl-formFieldInput,
+.cl-input {
+  background-color: #1A1A2E !important;
+  border-color: rgba(108, 99, 255, 0.2) !important;
+  color: #EAEAF4 !important;
+}
+
+.cl-formFieldInput::placeholder,
+.cl-input::placeholder {
+  color: #5A5A72 !important;
+}
+
+.cl-headerTitle {
+  color: #EAEAF4 !important;
+}
+
+.cl-headerSubtitle {
+  color: #8B8BA7 !important;
+}
+
+.cl-formFieldLabel {
+  color: #EAEAF4 !important;
+}
+
+.cl-footerActionText {
+  color: #8B8BA7 !important;
+}
+
+.cl-footerActionLink {
+  color: #6C63FF !important;
+}
+
+.cl-socialButtonsBlockButton {
+  background-color: #1A1A2E !important;
+  border-color: rgba(108, 99, 255, 0.15) !important;
+}
+
+.cl-socialButtonsBlockButtonText {
+  color: #EAEAF4 !important;
+}
+
+.cl-dividerLine {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.cl-dividerText {
+  color: #5A5A72 !important;
+}
+
+.cl-card {
+  background-color: #12121A !important;
+  border: 1px solid rgba(108, 99, 255, 0.12) !important;
+}
+
+.cl-userButtonPopoverCard {
+  background-color: #12121A !important;
+  border: 1px solid rgba(108, 99, 255, 0.12) !important;
+}
+
+.cl-userButtonPopoverActionButton,
+.cl-userButtonPopoverActionButtonText {
+  color: #EAEAF4 !important;
+}
+
+.cl-userButtonPopoverActionButtonIcon {
+  color: #8B8BA7 !important;
+}
+
+.cl-userPreviewMainIdentifier {
+  color: #EAEAF4 !important;
+}
+
+.cl-userPreviewSecondaryIdentifier {
+  color: #8B8BA7 !important;
+}
+
+.cl-formButtonPrimary {
+  background-color: #6C63FF !important;
+  box-shadow: 0 4px 16px rgba(108, 99, 255, 0.25) !important;
+}
+
+.cl-badge {
+  color: #EAEAF4 !important;
+  background-color: #1A1A2E !important;
+}
+
+.cl-modalContent {
+  background-color: #12121A !important;
+}
+
+.cl-profileSectionTitle,
+.cl-profileSectionTitleText {
+  color: #EAEAF4 !important;
+}
+
+.cl-profileSectionContent {
+  color: #8B8BA7 !important;
+}
+
+.cl-formFieldHintText {
+  color: #5A5A72 !important;
+}
+
+.cl-alertText {
+  color: #EAEAF4 !important;
+}
+
+.cl-userButtonPopoverFooter {
+  display: none !important;
+}
+
+.cl-formFieldInputShowPasswordButton {
+  color: #8B8BA7 !important;
+}
+
+.cl-otpCodeFieldInput {
+  background-color: #1A1A2E !important;
+  border-color: rgba(108, 99, 255, 0.2) !important;
+  color: #EAEAF4 !important;
+}
+
+.cl-identityPreviewEditButton {
+  color: #6C63FF !important;
+}
+
+.cl-formResendCodeLink {
+  color: #6C63FF !important;
+}
+
+.cl-selectButton {
+  background-color: #1A1A2E !important;
+  border-color: rgba(108, 99, 255, 0.2) !important;
+  color: #EAEAF4 !important;
+}
+
+.cl-selectOption {
+  background-color: #12121A !important;
+  color: #EAEAF4 !important;
+}
+
+.cl-selectOption:hover {
+  background-color: #1A1A2E !important;
+}
+
+.cl-navbar {
+  background-color: #12121A !important;
+}
+
+.cl-navbarButton {
+  color: #8B8BA7 !important;
+}
+
+.cl-navbarButton[data-active="true"] {
+  color: #6C63FF !important;
+}
+
+.cl-pageScrollBox {
+  background-color: #12121A !important;
+}
+
+.cl-profilePage {
+  background-color: #12121A !important;
+}
+
+.cl-accordionTriggerButton {
+  color: #EAEAF4 !important;
+}
+
+.cl-accordionContent {
+  color: #8B8BA7 !important;
+}
+
+.cl-menuButton {
+  color: #EAEAF4 !important;
+}
+
+.cl-menuList {
+  background-color: #12121A !important;
+  border: 1px solid rgba(108, 99, 255, 0.12) !important;
+}
+
+.cl-menuItem {
+  color: #EAEAF4 !important;
+}
+
+.cl-menuItem:hover {
+  background-color: #1A1A2E !important;
+}

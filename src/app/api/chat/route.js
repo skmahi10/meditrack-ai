@@ -1,5 +1,5 @@
 import { db } from "../../../lib/firebase-admin.js";
-import { chatWithContext } from "../../../lib/gemini.js";
+import { generateChatResponse } from "../../../lib/gemini.js";
 
 export const runtime = "nodejs";
 
@@ -30,24 +30,28 @@ export async function POST(request) {
       return jsonError("Shipment not found", 404);
     }
 
+    // Fetch latest telemetry for context
     const telemetrySnapshot = await db
       .collection("telemetry")
-      .where("shipmentId", "==", shipmentId)
-      .get();
-    const blockSnapshot = await db
-      .collection("blockchain")
       .where("shipmentId", "==", shipmentId)
       .get();
 
     const telemetry = telemetrySnapshot.docs
       .map((doc) => ({ id: doc.id, ...doc.data() }))
       .sort((a, b) => timestampMillis(b.timestamp) - timestampMillis(a.timestamp))
-      .slice(0, 10)
+      .slice(0, 5)
       .reverse();
-    const blockchain = blockSnapshot.docs
-      .map((doc) => ({ id: doc.id, ...doc.data() }))
-      .sort((a, b) => a.blockNumber - b.blockNumber);
-    const answer = await chatWithContext({ ...shipment, blockchain }, telemetry, question);
+
+    // Add latest telemetry context to shipment for richer AI answers
+    const latestReading = telemetry[telemetry.length - 1];
+    const enrichedShipment = {
+      ...shipment,
+      currentTemp: latestReading?.temperature ?? shipment.currentTemp,
+      currentHumidity: latestReading?.humidity ?? shipment.currentHumidity,
+      currentSpeed: latestReading?.speed ?? shipment.currentSpeed,
+    };
+
+    const answer = await generateChatResponse(enrichedShipment, question);
 
     return Response.json({ answer });
   } catch (error) {

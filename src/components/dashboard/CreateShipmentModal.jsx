@@ -1,5 +1,5 @@
 "use client";
-
+import { useUser } from "@clerk/nextjs";
 import { useState } from "react";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -26,6 +26,8 @@ const cities = [
 ];
 
 export default function CreateShipmentModal({ isOpen, onClose, onCreated }) {
+  const { user } = useUser();
+
   const [loading, setLoading] = useState(false);
   const [simulating, setSimulating] = useState(false);
   const [step, setStep] = useState(1);
@@ -80,7 +82,7 @@ export default function CreateShipmentModal({ isOpen, onClose, onCreated }) {
         checkpoints: [],
         carrierId: "USR-003",
         receiverId: "USR-001",
-        createdBy: "USR-002",
+        createdBy: user?.id || "USR-002",
         status: "created",
         priority: form.priority,
         currentTemp: selectedProduct.tempMin + 1,
