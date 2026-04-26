@@ -116,14 +116,32 @@ export default function CreateShipmentModal({ isOpen, onClose, onCreated }) {
         deliveredAt: null,
       };
 
-     await sendShipmentCreated(
-        user?.primaryEmailAddress
-          ?.emailAddress,
-
-        shipmentData
-      );
+    await addDoc(collection(db, "shipments"), shipmentData);
       setStep(2);
       setSuccess("Shipment " + shipmentId + " created successfully!");
+
+      // Wait for Firestore to propagate
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Now run simulation
+      setSimulating(true);
+      try {
+        const res = await fetch("/api/simulation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ shipmentId }),
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          setSuccess("Shipment " + shipmentId + " created and simulation complete! " + data.totalBlocks + " blockchain blocks generated.");
+        } else {
+          setSuccess("Shipment " + shipmentId + " created. Simulation pending: " + (data.error || "API not ready"));
+        }
+      } catch (simErr) {
+        setSuccess("Shipment " + shipmentId + " created. Simulation will run when backend is ready.");
+      }
+      setSimulating(false);
 
       // Now run simulation
       setSimulating(true);

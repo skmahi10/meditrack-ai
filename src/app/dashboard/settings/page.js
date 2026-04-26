@@ -18,7 +18,14 @@ export default function SettingsPage() {
 
     setDeleting(true);
     try {
-      const shipSnap = await getDocs(query(collection(db, "shipments"), where("createdBy", "==", user.id)));
+      // Get shipments by Clerk user ID and old USR IDs
+      const snap1 = await getDocs(query(collection(db, "shipments"), where("createdBy", "==", user.id)));
+      const snap2 = await getDocs(query(collection(db, "shipments"), where("createdBy", "==", "USR-002")));
+      const snap3 = await getDocs(query(collection(db, "shipments"), where("carrierId", "==", user.id)));
+      const allDocs = [...snap1.docs, ...snap2.docs, ...snap3.docs];
+      // Deduplicate
+      const seen = new Set();
+      const shipSnap = { docs: allDocs.filter((d) => { if (seen.has(d.id)) return false; seen.add(d.id); return true; }) };
       const shipmentIds = shipSnap.docs.map((d) => d.data().shipmentId);
 
       for (const d of shipSnap.docs) {

@@ -648,7 +648,7 @@ export default function LandingPage() {
             color: "var(--text-muted)",
           }}
         >
-          Built by Mahi {"&"} Faizan
+          Built by TechNites
         </div>
       </footer>
     </div>

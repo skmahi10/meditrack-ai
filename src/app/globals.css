@@ -480,3 +480,105 @@ body {
 .cl-menuItem:hover {
   background-color: #1A1A2E !important;
 }
+/* ========== CLERK ACCOUNT/PROFILE MODAL ========== */
+.cl-modalContent,
+.cl-modal-content,
+.cl-profilePage,
+.cl-account-page {
+  background-color: #12121A !important;
+  color: #EAEAF4 !important;
+}
+
+.cl-headerTitle,
+.cl-header__title,
+.cl-profileSectionTitle,
+.cl-profileSectionTitleText,
+.cl-formFieldLabel,
+.cl-formFieldLabelRow,
+.cl-accordionTriggerButton,
+.cl-breadcrumbs,
+.cl-breadcrumbsItem,
+.cl-navbarButton,
+.cl-profileSectionPrimaryButton,
+.cl-menuButton,
+.cl-menuItem,
+.cl-userPreviewMainIdentifier,
+.cl-formattedPhoneNumber,
+.cl-profileSectionContent__emailAddresses,
+.cl-profileSectionContent__connectedAccounts,
+.cl-profileSectionContent,
+.cl-internal-17jdun,
+.cl-internal-1dauvx {
+  color: #EAEAF4 !important;
+}
+
+.cl-headerSubtitle,
+.cl-header__subtitle,
+.cl-profileSectionSubtitle,
+.cl-userPreviewSecondaryIdentifier,
+.cl-internal-1hp6vw,
+.cl-formFieldHintText {
+  color: #8B8BA7 !important;
+}
+
+.cl-navbar {
+  background-color: #0A0A0F !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.cl-navbarButton {
+  color: #8B8BA7 !important;
+}
+
+.cl-navbarButton[data-active="true"] {
+  color: #6C63FF !important;
+  background-color: rgba(108, 99, 255, 0.1) !important;
+}
+
+.cl-pageScrollBox {
+  background-color: #12121A !important;
+}
+
+.cl-profileSection {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.cl-badge,
+.cl-badge__primary {
+  background-color: #1A1A2E !important;
+  color: #EAEAF4 !important;
+  border: 1px solid rgba(108, 99, 255, 0.2) !important;
+}
+
+.cl-userButtonPopoverActionButton__manageAccount,
+.cl-userButtonPopoverActionButton__signOut {
+  color: #EAEAF4 !important;
+}
+
+.cl-avatarBox {
+  border: 2px solid rgba(108, 99, 255, 0.3) !important;
+}
+
+.cl-profileSectionPrimaryButton,
+.cl-button {
+  color: #6C63FF !important;
+}
+
+.cl-modalCloseButton {
+  color: #8B8BA7 !important;
+}
+
+.cl-internal-b3fm6y,
+.cl-internal-16vtwdp,
+[class*="cl-internal"] {
+  color: #EAEAF4 !important;
+}
+
+.cl-menuList {
+  background-color: #12121A !important;
+  border: 1px solid rgba(108, 99, 255, 0.12) !important;
+}
+
+.cl-menuItem:hover {
+  background-color: #1A1A2E !important;
+}
