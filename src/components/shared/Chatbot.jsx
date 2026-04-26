@@ -3,13 +3,7 @@
 
 import { useState, useRef, useEffect } from "react";
 
-const mockResponses = [
-  "Based on the current telemetry data, SHP-2026-0042 is maintaining safe temperature levels at -17.2\u00B0C. The minor delay near Jaipur has resolved and the shipment is back on schedule.",
-  "The risk score for SHP-2026-0043 is elevated at 72% due to a cooling unit malfunction. Battery level dropped to 15%, causing temperature to rise above the 8\u00B0C threshold. I recommend activating backup cooling immediately.",
-  "Looking at the blockchain ledger, all 8 blocks for SHP-2026-0042 are verified with valid hash chains. No tampering detected. The chain integrity is VALID.",
-  "Payment PAY-0042 is currently held in escrow at \u20B9125,000. It will be released automatically once all four conditions are met: delivery confirmation, temperature compliance, blockchain verification, and receiver signature.",
-  "Based on current transit patterns, I predict SHP-2026-0042 will arrive in Delhi by approximately 21:00 IST. Current progress is 62% with an ETA of 3 hours.",
-];
+
 
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -36,32 +30,71 @@ export default function Chatbot() {
     }
   }, [isOpen]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
+  const handleSend = async () => {
+  if (!input.trim()) return;
 
-    const userMsg = {
-      id: "msg-" + Date.now(),
-      role: "user",
-      content: input.trim(),
+  const question = input.trim();
+
+  const userMsg = {
+    id: "msg-" + Date.now(),
+    role: "user",
+    content: question,
+    timestamp: new Date().toISOString(),
+  };
+
+  setMessages((prev) => [...prev, userMsg]);
+
+  setInput("");
+  setIsTyping(true);
+
+  try {
+    
+    const shipmentId =
+  localStorage.getItem("activeShipmentId");
+
+if (!shipmentId) {
+  throw new Error("No active shipment selected");
+}
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        shipmentId,
+        question,
+      }),
+    });
+
+    const data = await res.json();
+
+    const response = {
+      id: "msg-" + (Date.now() + 1),
+      role: "assistant",
+      content:
+        data.answer ||
+        "No response generated.",
       timestamp: new Date().toISOString(),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
-    setInput("");
-    setIsTyping(true);
+    setMessages((prev) => [...prev, response]);
+  } catch (err) {
+    console.error(err);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const response = {
-        id: "msg-" + (Date.now() + 1),
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: "error-" + Date.now(),
         role: "assistant",
-        content: mockResponses[Math.floor(Math.random() * mockResponses.length)],
+        content:
+          "AI service unavailable right now.",
         timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, response]);
-      setIsTyping(false);
-    }, 1500);
-  };
+      },
+    ]);
+  }
+
+  setIsTyping(false);
+};
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -350,25 +383,8 @@ export default function Chatbot() {
               <button
                 key={action}
                 onClick={() => {
-                  const userMsg = {
-                    id: "msg-" + Date.now(),
-                    role: "user",
-                    content: action,
-                    timestamp: new Date().toISOString(),
-                  };
-                  setMessages((prev) => [...prev, userMsg]);
-                  setIsTyping(true);
-                  setTimeout(() => {
-                    const response = {
-                      id: "msg-" + (Date.now() + 1),
-                      role: "assistant",
-                      content: mockResponses[Math.floor(Math.random() * mockResponses.length)],
-                      timestamp: new Date().toISOString(),
-                    };
-                    setMessages((prev) => [...prev, response]);
-                    setIsTyping(false);
-                  }, 1500);
-                }}
+  setInput(action);
+}}
                 style={{
                   padding: "6px 12px",
                   borderRadius: "8px",

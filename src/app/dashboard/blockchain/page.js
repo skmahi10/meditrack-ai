@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useBlockchain, useShipments } from "@/lib/useFirestore";
-import { blockchainBlocks as mockBlocks } from "@/lib/mockData";
+
 
 const eventIcons = {
   SHIPMENT_CREATED: "\u{1F4E6}", PAYMENT_HELD: "\u{1F4B3}", SHIPMENT_PICKED_UP: "\u{1F69A}",
@@ -19,13 +20,14 @@ const eventColors = {
 };
 
 export default function BlockchainPage() {
-  const { shipments } = useShipments();
+  const { user } = useUser();
+  const { shipments } = useShipments(user?.id);
   const [selectedShipmentId, setSelectedShipmentId] = useState(null);
   const [selectedBlock, setSelectedBlock] = useState(null);
 
   const activeId = selectedShipmentId || shipments[0]?.shipmentId;
   const { blocks: firebaseBlocks, loading } = useBlockchain(activeId);
-  const blocks = firebaseBlocks.length > 0 ? firebaseBlocks : mockBlocks;
+  const blocks = firebaseBlocks;
 
   if (loading) {
     return (

@@ -107,12 +107,17 @@ export function useBlockchain(shipmentId) {
   return { blocks, loading };
 }
 
-export function usePayments() {
+export function usePayments(userId) {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, "payments"));
+    let q;
+    if (userId) {
+      q = query(collection(db, "payments"), where("payerId", "==", userId));
+    } else {
+      q = query(collection(db, "payments"));
+    }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => ({
@@ -130,17 +135,22 @@ export function usePayments() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [userId]);
 
   return { payments, loading };
 }
 
-export function useNotifications() {
+export function useNotifications(userId) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, "notifications"), orderBy("timestamp", "desc"));
+    let q;
+    if (userId) {
+      q = query(collection(db, "notifications"), where("userId", "==", userId));
+    } else {
+      q = query(collection(db, "notifications"));
+    }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => ({
@@ -148,6 +158,8 @@ export function useNotifications() {
         ...doc.data(),
         timestamp: doc.data().timestamp?.toDate?.()?.toISOString() || doc.data().timestamp,
       }));
+      // Sort client-side to avoid needing another composite index
+      data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
       setNotifications(data);
       setLoading(false);
     }, (error) => {
@@ -156,7 +168,7 @@ export function useNotifications() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [userId]);
 
   return { notifications, loading };
 }

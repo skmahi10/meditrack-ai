@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { usePayments, useShipments } from "@/lib/useFirestore";
-import { payments as mockPayments } from "@/lib/mockData";
+
 
 const statusConfig = {
   created: { label: "Created", color: "var(--text-muted)", soft: "var(--bg-elevated)" },
@@ -13,12 +14,13 @@ const statusConfig = {
 };
 
 export default function PaymentsPage() {
-  const { payments: firebasePayments, loading } = usePayments();
-  const { shipments } = useShipments();
+  const { user } = useUser();
+  const { payments: firebasePayments, loading } = usePayments(user?.id);
+  const { shipments } = useShipments(user?.id);
   const [selectedPayment, setSelectedPayment] = useState(null);
   const [filter, setFilter] = useState("all");
 
-  const payments = firebasePayments.length > 0 ? firebasePayments : mockPayments;
+  const payments = firebasePayments;
 
   const filtered = filter === "all" ? payments : payments.filter((p) => p.status === filter);
 

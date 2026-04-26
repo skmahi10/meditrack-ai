@@ -20,11 +20,17 @@ export async function POST(request) {
   try {
     const { shipmentId, question } = await request.json();
 
-    if (!shipmentId || !question) {
+    if (!question) {
       return jsonError("shipmentId and question are required", 400);
     }
 
-    const shipment = await getShipment(shipmentId);
+    let shipment = null;
+
+    if (shipmentId) {
+      shipment = await getShipment(
+        shipmentId
+      );
+    }
 
     if (!shipment) {
       return jsonError("Shipment not found", 404);
@@ -51,7 +57,11 @@ export async function POST(request) {
       currentSpeed: latestReading?.speed ?? shipment.currentSpeed,
     };
 
-    const answer = await generateChatResponse(enrichedShipment, question);
+    const answer =
+      await generateChatResponse(
+        enrichedShipment || {},
+        question
+      );
 
     return Response.json({ answer });
   } catch (error) {

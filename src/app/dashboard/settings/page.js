@@ -1,24 +1,67 @@
 "use client";
 
 import { useState } from "react";
-import { currentUser } from "@/lib/mockData";
+import { useUser } from "@clerk/nextjs";
+import { collection, query, where, getDocs, deleteDoc, doc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { useTheme } from "@/components/layout/ThemeProvider";
 
 export default function SettingsPage() {
+  const { user } = useUser();
   const { theme, toggleTheme } = useTheme();
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAll = async () => {
+    if (!user?.id) return;
+    const confirmed = window.confirm("Are you sure? This will delete ALL your shipments, telemetry, blockchain blocks, payments, and notifications. This cannot be undone.");
+    if (!confirmed) return;
+
+    setDeleting(true);
+    try {
+      const shipSnap = await getDocs(query(collection(db, "shipments"), where("createdBy", "==", user.id)));
+      const shipmentIds = shipSnap.docs.map((d) => d.data().shipmentId);
+
+      for (const d of shipSnap.docs) {
+        await deleteDoc(doc(db, "shipments", d.id));
+      }
+
+      for (const sid of shipmentIds) {
+        const telSnap = await getDocs(query(collection(db, "telemetry"), where("shipmentId", "==", sid)));
+        for (const d of telSnap.docs) await deleteDoc(doc(db, "telemetry", d.id));
+
+        const blockSnap = await getDocs(query(collection(db, "blockchain"), where("shipmentId", "==", sid)));
+        for (const d of blockSnap.docs) await deleteDoc(doc(db, "blockchain", d.id));
+
+        const paySnap = await getDocs(query(collection(db, "payments"), where("shipmentId", "==", sid)));
+        for (const d of paySnap.docs) await deleteDoc(doc(db, "payments", d.id));
+
+        const notifSnap = await getDocs(query(collection(db, "notifications"), where("shipmentId", "==", sid)));
+        for (const d of notifSnap.docs) await deleteDoc(doc(db, "notifications", d.id));
+      }
+
+      alert("All data deleted successfully!");
+      window.location.href = "/dashboard";
+    } catch (err) {
+      alert("Delete failed: " + err.message);
+    }
+    setDeleting(false);
+  };
+
   const [profile, setProfile] = useState({
-    name: currentUser.name,
-    email: currentUser.email,
-    organization: currentUser.organization,
-    location: currentUser.location,
-    role: currentUser.role,
+    name: user?.fullName || "",
+    email: user?.primaryEmailAddress?.emailAddress || "",
+    organization: "",
+    location: "",
+    role: "manufacturer",
   });
+
   const [thresholds, setThresholds] = useState({
     tempMin: -20,
     tempMax: -15,
     riskAlert: 60,
     delayAlert: 30,
   });
+
   const [notifPrefs, setNotifPrefs] = useState({
     emailAlerts: true,
     criticalOnly: false,
@@ -26,6 +69,7 @@ export default function SettingsPage() {
     deliveryConfirmation: true,
     dailyDigest: false,
   });
+
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
@@ -69,12 +113,8 @@ export default function SettingsPage() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 style={{ fontFamily: "var(--font-outfit)", fontSize: "22px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px 0" }}>
-            Settings
-          </h1>
-          <p style={{ fontFamily: "var(--font-ibm)", fontSize: "13px", color: "var(--text-muted)", margin: 0 }}>
-            Profile, thresholds, notifications, and preferences
-          </p>
+          <h1 style={{ fontFamily: "var(--font-outfit)", fontSize: "22px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 4px 0" }}>Settings</h1>
+          <p style={{ fontFamily: "var(--font-ibm)", fontSize: "13px", color: "var(--text-muted)", margin: 0 }}>Profile, thresholds, notifications, and preferences</p>
         </div>
         <button
           onClick={handleSave}
@@ -97,9 +137,7 @@ export default function SettingsPage() {
         >
           {saved ? (
             <>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M3 8l4 4 6-6" />
-              </svg>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 8l4 4 6-6" /></svg>
               Saved
             </>
           ) : (
@@ -108,78 +146,30 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {/* Profile Section */}
+      {/* Profile */}
       <div className="bento-card animate-fade-in" style={{ padding: "28px" }}>
-        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 20px 0" }}>
-          Profile
-        </h2>
-
+        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 20px 0" }}>Profile</h2>
         <div style={{ display: "flex", gap: "24px", marginBottom: "24px" }}>
-          {/* Avatar */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
-            <div
-              style={{
-                width: "72px",
-                height: "72px",
-                borderRadius: "16px",
-                background: "linear-gradient(135deg, var(--accent), #8B83FF)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#fff",
-                fontFamily: "var(--font-outfit)",
-                fontSize: "28px",
-                fontWeight: 700,
-                boxShadow: "0 0 24px var(--accent-glow)",
-              }}
-            >
-              {profile.name.charAt(0)}
+            <div style={{ width: "72px", height: "72px", borderRadius: "16px", background: "linear-gradient(135deg, var(--accent), #8B83FF)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: "var(--font-outfit)", fontSize: "28px", fontWeight: 700, boxShadow: "0 0 24px var(--accent-glow)" }}>
+              {(profile.name || "U").charAt(0)}
             </div>
-            <span
-              style={{
-                padding: "3px 10px",
-                borderRadius: "8px",
-                background: "var(--success-soft)",
-                color: "var(--success)",
-                fontFamily: "var(--font-ibm)",
-                fontSize: "11px",
-                fontWeight: 500,
-              }}
-            >
-              Trust: {currentUser.trustScore}%
-            </span>
           </div>
-
-          {/* Fields */}
           <div style={{ flex: 1, display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
             {[
-              { label: "Full Name", key: "name", placeholder: "Dr. Priya Sharma" },
+              { label: "Full Name", key: "name", placeholder: "Your name" },
               { label: "Email", key: "email", placeholder: "you@org.com", type: "email" },
-              { label: "Organization", key: "organization", placeholder: "Apollo Hospital" },
-              { label: "Location", key: "location", placeholder: "New Delhi" },
+              { label: "Organization", key: "organization", placeholder: "Your organization" },
+              { label: "Location", key: "location", placeholder: "City" },
             ].map((field) => (
               <div key={field.key}>
-                <label style={{ fontFamily: "var(--font-ibm)", fontSize: "11px", fontWeight: 500, color: "var(--text-muted)", display: "block", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  {field.label}
-                </label>
+                <label style={{ fontFamily: "var(--font-ibm)", fontSize: "11px", fontWeight: 500, color: "var(--text-muted)", display: "block", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.04em" }}>{field.label}</label>
                 <input
                   type={field.type || "text"}
                   value={profile[field.key]}
                   onChange={(e) => setProfile((prev) => ({ ...prev, [field.key]: e.target.value }))}
                   placeholder={field.placeholder}
-                  style={{
-                    width: "100%",
-                    padding: "10px 14px",
-                    borderRadius: "10px",
-                    border: "1px solid var(--border-subtle)",
-                    background: "var(--bg-elevated)",
-                    color: "var(--text-primary)",
-                    fontFamily: "var(--font-ibm)",
-                    fontSize: "13px",
-                    outline: "none",
-                    boxSizing: "border-box",
-                    transition: "border-color 0.2s ease",
-                  }}
+                  style={{ width: "100%", padding: "10px 14px", borderRadius: "10px", border: "1px solid var(--border-subtle)", background: "var(--bg-elevated)", color: "var(--text-primary)", fontFamily: "var(--font-ibm)", fontSize: "13px", outline: "none", boxSizing: "border-box" }}
                   onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
                   onBlur={(e) => (e.target.style.borderColor = "var(--border-subtle)")}
                 />
@@ -187,58 +177,24 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
-
-        {/* Role display */}
-        <div
-          style={{
-            padding: "12px 16px",
-            borderRadius: "10px",
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-subtle)",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
+        <div style={{ padding: "12px 16px", borderRadius: "10px", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <span style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)" }}>Role: </span>
-            <span style={{ fontFamily: "var(--font-ibm)", fontSize: "13px", fontWeight: 600, color: "var(--accent)", textTransform: "capitalize" }}>
-              {profile.role}
-            </span>
+            <span style={{ fontFamily: "var(--font-ibm)", fontSize: "13px", fontWeight: 600, color: "var(--accent)", textTransform: "capitalize" }}>{profile.role}</span>
           </div>
-          <span style={{ fontFamily: "var(--font-ibm)", fontSize: "11px", color: "var(--text-muted)" }}>
-            Role changes require admin approval
-          </span>
+          <span style={{ fontFamily: "var(--font-ibm)", fontSize: "11px", color: "var(--text-muted)" }}>Role changes require admin approval</span>
         </div>
       </div>
 
       {/* Appearance */}
       <div className="bento-card animate-fade-in-delay-1" style={{ padding: "28px" }}>
-        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 20px 0" }}>
-          Appearance
-        </h2>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            padding: "14px 18px",
-            borderRadius: "12px",
-            background: "var(--bg-elevated)",
-            border: "1px solid var(--border-subtle)",
-          }}
-        >
+        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 20px 0" }}>Appearance</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderRadius: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <div style={{ fontSize: "22px" }}>
-              {theme === "dark" ? "\u{1F319}" : "\u{2600}\u{FE0F}"}
-            </div>
+            <div style={{ fontSize: "22px" }}>{theme === "dark" ? "\u{1F319}" : "\u{2600}\u{FE0F}"}</div>
             <div>
-              <div style={{ fontFamily: "var(--font-ibm)", fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>
-                {theme === "dark" ? "Dark Mode" : "Light Mode"}
-              </div>
-              <div style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)" }}>
-                {theme === "dark" ? "Optimized for low-light environments" : "Bright interface for daytime use"}
-              </div>
+              <div style={{ fontFamily: "var(--font-ibm)", fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>{theme === "dark" ? "Dark Mode" : "Light Mode"}</div>
+              <div style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)" }}>{theme === "dark" ? "Optimized for low-light environments" : "Bright interface for daytime use"}</div>
             </div>
           </div>
           <Toggle checked={theme === "dark"} onChange={toggleTheme} />
@@ -247,9 +203,7 @@ export default function SettingsPage() {
 
       {/* Alert Thresholds */}
       <div className="bento-card animate-fade-in-delay-2" style={{ padding: "28px" }}>
-        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 20px 0" }}>
-          Alert Thresholds
-        </h2>
+        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 20px 0" }}>Alert Thresholds</h2>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
           {[
             { label: "Min Temperature (\u00B0C)", key: "tempMin", min: -30, max: 0, color: "var(--accent)" },
@@ -259,12 +213,8 @@ export default function SettingsPage() {
           ].map((field) => (
             <div key={field.key}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
-                <label style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", fontWeight: 500, color: "var(--text-secondary)" }}>
-                  {field.label}
-                </label>
-                <span style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 700, color: field.color }}>
-                  {thresholds[field.key]}
-                </span>
+                <label style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", fontWeight: 500, color: "var(--text-secondary)" }}>{field.label}</label>
+                <span style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 700, color: field.color }}>{thresholds[field.key]}</span>
               </div>
               <input
                 type="range"
@@ -272,16 +222,7 @@ export default function SettingsPage() {
                 max={field.max}
                 value={thresholds[field.key]}
                 onChange={(e) => setThresholds((prev) => ({ ...prev, [field.key]: Number(e.target.value) }))}
-                style={{
-                  width: "100%",
-                  height: "6px",
-                  borderRadius: "3px",
-                  appearance: "none",
-                  background: "var(--bg-elevated)",
-                  outline: "none",
-                  cursor: "pointer",
-                  accentColor: field.color,
-                }}
+                style={{ width: "100%", height: "6px", borderRadius: "3px", appearance: "none", background: "var(--bg-elevated)", outline: "none", cursor: "pointer", accentColor: field.color }}
               />
               <div style={{ display: "flex", justifyContent: "space-between", marginTop: "4px" }}>
                 <span style={{ fontFamily: "var(--font-ibm)", fontSize: "10px", color: "var(--text-muted)" }}>{field.min}</span>
@@ -294,10 +235,8 @@ export default function SettingsPage() {
 
       {/* Notification Preferences */}
       <div className="bento-card animate-fade-in-delay-3" style={{ padding: "28px" }}>
-        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 20px 0" }}>
-          Notification Preferences
-        </h2>
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--text-primary)", margin: "0 0 20px 0" }}>Notification Preferences</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
           {[
             { key: "emailAlerts", label: "Email Alerts", description: "Receive email notifications for critical events" },
             { key: "criticalOnly", label: "Critical Only", description: "Only notify for critical severity events" },
@@ -305,87 +244,56 @@ export default function SettingsPage() {
             { key: "deliveryConfirmation", label: "Delivery Confirmation", description: "Alert when shipments are delivered" },
             { key: "dailyDigest", label: "Daily Digest", description: "Receive a daily summary email at 8:00 AM" },
           ].map((pref) => (
-            <div
-              key={pref.key}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                padding: "14px 18px",
-                borderRadius: "12px",
-                background: "var(--bg-elevated)",
-                border: "1px solid var(--border-subtle)",
-                marginBottom: "8px",
-              }}
-            >
+            <div key={pref.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderRadius: "12px", background: "var(--bg-elevated)", border: "1px solid var(--border-subtle)" }}>
               <div>
-                <div style={{ fontFamily: "var(--font-ibm)", fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>
-                  {pref.label}
-                </div>
-                <div style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
-                  {pref.description}
-                </div>
+                <div style={{ fontFamily: "var(--font-ibm)", fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>{pref.label}</div>
+                <div style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>{pref.description}</div>
               </div>
-              <Toggle
-                checked={notifPrefs[pref.key]}
-                onChange={() => setNotifPrefs((prev) => ({ ...prev, [pref.key]: !prev[pref.key] }))}
-              />
+              <Toggle checked={notifPrefs[pref.key]} onChange={() => setNotifPrefs((prev) => ({ ...prev, [pref.key]: !prev[pref.key] }))} />
             </div>
           ))}
         </div>
       </div>
 
       {/* Danger Zone */}
-      <div
-        className="bento-card animate-fade-in-delay-4"
-        style={{
-          padding: "28px",
-          borderColor: "rgba(255, 71, 87, 0.15)",
-        }}
-      >
-        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--danger)", margin: "0 0 16px 0" }}>
-          Danger Zone
-        </h2>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontFamily: "var(--font-ibm)", fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>
-              Sign Out
+      <div className="bento-card animate-fade-in-delay-4" style={{ padding: "28px", borderColor: "rgba(255, 71, 87, 0.15)" }}>
+        <h2 style={{ fontFamily: "var(--font-outfit)", fontSize: "16px", fontWeight: 600, color: "var(--danger)", margin: "0 0 16px 0" }}>Danger Zone</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-ibm)", fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>Delete All My Shipments</div>
+              <div style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>Removes all your shipments, telemetry, blockchain, payments, and notifications</div>
             </div>
-            <div style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
-              Sign out of your MediTrack AI account
-            </div>
+            <button
+              onClick={handleDeleteAll}
+              disabled={deleting}
+              style={{ padding: "8px 20px", borderRadius: "10px", border: "1px solid var(--danger)", background: "transparent", color: "var(--danger)", fontFamily: "var(--font-ibm)", fontSize: "13px", fontWeight: 500, cursor: deleting ? "default" : "pointer" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--danger-soft)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              {deleting ? "Deleting..." : "Delete All"}
+            </button>
           </div>
-          <button
-            onClick={() => {
-              if (window.Clerk) {
-                window.Clerk.signOut().then(() => {
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-ibm)", fontSize: "14px", fontWeight: 500, color: "var(--text-primary)" }}>Sign Out</div>
+              <div style={{ fontFamily: "var(--font-ibm)", fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>Sign out of your MediTrack AI account</div>
+            </div>
+            <button
+              onClick={() => {
+                if (window.Clerk) {
+                  window.Clerk.signOut().then(() => { window.location.href = "/login"; });
+                } else {
                   window.location.href = "/login";
-                });
-              } else {
-                window.location.href = "/login";
-              }
-            }}
-            style={{
-              padding: "8px 20px",
-              borderRadius: "10px",
-              border: "1px solid var(--danger)",
-              background: "transparent",
-              color: "var(--danger)",
-              fontFamily: "var(--font-ibm)",
-              fontSize: "13px",
-              fontWeight: 500,
-              cursor: "pointer",
-              transition: "all 0.2s ease",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = "var(--danger-soft)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = "transparent";
-            }}
-          >
-            Sign Out
-          </button>
+                }
+              }}
+              style={{ padding: "8px 20px", borderRadius: "10px", border: "1px solid var(--danger)", background: "transparent", color: "var(--danger)", fontFamily: "var(--font-ibm)", fontSize: "13px", fontWeight: 500, cursor: "pointer" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--danger-soft)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
       </div>
     </div>

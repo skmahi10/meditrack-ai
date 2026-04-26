@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import { useNotifications } from "@/lib/useFirestore";
-import { notifications as mockNotifications } from "@/lib/mockData";
+
 
 const severityConfig = {
   critical: { label: "Critical", color: "var(--danger)", soft: "var(--danger-soft)", icon: "\u{1F6A8}" },
@@ -18,11 +19,12 @@ const typeConfig = {
 };
 
 export default function NotificationsPage() {
-  const { notifications: firebaseNotifs, loading } = useNotifications();
+  const { user } = useUser();
+  const { notifications: firebaseNotifs, loading } = useNotifications(user?.id);
   const [filter, setFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
 
-  const items = firebaseNotifs.length > 0 ? firebaseNotifs : mockNotifications;
+  const items = firebaseNotifs;
 
   const filtered = items.filter((n) => {
     if (filter === "unread" && n.read) return false;

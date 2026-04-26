@@ -1,4 +1,9 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+
+import {
+  generateIncidentNarrative,
+  generateRiskRecommendation as generateRuleRisk,
+  generateComplianceSummary,
+} from "./reportEngine";
 
 const SYSTEM_PROMPT = `You are MediTrack AI, an intelligent pharmaceutical cold-chain logistics assistant. You monitor shipments of temperature-sensitive medicines (vaccines, insulin, biologics) across India. You have access to real-time telemetry data, blockchain verification records, and risk analytics. Provide concise, professional, actionable responses. Always reference specific data points (temperatures, timestamps, risk scores) when available.`;
 
@@ -22,109 +27,192 @@ const FALLBACK_RESPONSES = {
     `This ${shipment.product || "medicine"} (Batch: ${shipment.batchNumber || "N/A"}) has been transported under continuous cold-chain monitoring by MediTrack AI. Temperature compliance score: ${complianceScore}%. Blockchain verification: ${chainValid ? "PASSED — all supply chain records are intact and tamper-proof" : "PENDING — verification in progress"}. This product has been handled according to WHO pharmaceutical cold-chain guidelines.`,
 };
 
-async function callGemini(taskPrompt, timeoutMs = 8000) {
+async function callGemini(taskPrompt) {
   try {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) return null;
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-lite" });
+    if (!apiKey) {
+      console.error("Missing Gemini API key");
+      return null;
+    }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: `${SYSTEM_PROMPT}\n\n${taskPrompt}`,
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
 
-    const result = await model.generateContent(`${SYSTEM_PROMPT}\n\n${taskPrompt}`);
-    clearTimeout(timeout);
+    const data = await response.json();
 
-    return result.response.text().trim();
+    if (!response.ok) {
+      console.error(
+        "Gemini API Error:",
+        data
+      );
+      return null;
+    }
+
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || null;
   } catch (error) {
-    console.warn("Gemini unavailable, using fallback:", error.message?.slice(0, 80));
+    console.error(
+      "Gemini fetch failed:",
+      error
+    );
+
     return null;
   }
 }
 
 // === TOUCHPOINT 1: Incident Reports ===
-export async function generateIncidentReport(shipment, telemetry, eventType) {
-  const violationReadings = telemetry?.filter((t) => t.isViolation) || [];
-  const prompt = `Generate a detailed incident report for pharmaceutical shipment ${shipment.shipmentId}.
-Product: ${shipment.product} (${shipment.productCategory || "pharmaceutical"})
-Event type: ${eventType}
-Current temperature: ${shipment.currentTemp}°C
-Required range: ${shipment.tempRange?.min}°C to ${shipment.tempRange?.max}°C
-Violation readings count: ${violationReadings.length}
-Risk score: ${shipment.riskScore || 0}%
-Route: ${shipment.origin?.city || "Origin"} → ${shipment.destination?.city || "Destination"}
-
-Include: what happened, severity assessment, actions taken automatically (alerts, payment hold, blockchain logging), and recommended next steps. Keep it under 150 words.`;
-
-  const result = await callGemini(prompt);
-  return result || FALLBACK_RESPONSES.incident(shipment);
+export async function generateIncidentReport(
+  shipment
+) {
+  return generateIncidentNarrative(shipment);
 }
 
 // === TOUCHPOINT 2: Risk Recommendations ===
-export async function generateRiskRecommendation(shipment, telemetry) {
-  const prompt = `Give an actionable risk recommendation for cold-chain shipment ${shipment.shipmentId}.
-Product: ${shipment.product}
-Status: ${shipment.status}
-Risk score: ${shipment.riskScore}%
-Current temp: ${shipment.currentTemp}°C (required: ${shipment.tempRange?.min}°C to ${shipment.tempRange?.max}°C)
-Progress: ${shipment.progress || 0}%
-Route: ${shipment.origin?.city || "Origin"} → ${shipment.destination?.city || "Destination"}
-
-Provide specific actions the carrier should take. If risk is high, suggest rerouting via nearest cold storage. Keep it under 100 words.`;
-
-  const result = await callGemini(prompt);
-  return result || FALLBACK_RESPONSES.recommendation(shipment);
+export async function generateRiskRecommendation(
+  shipment
+) {
+  return generateRuleRisk(shipment);
 }
 
 // === TOUCHPOINT 3: Chatbot with Shipment Context ===
-export async function generateChatResponse(shipment, question) {
-  const prompt = `You are answering a question about a specific pharmaceutical shipment. Here is the context:
+export async function generateChatResponse(
+  shipment,
+  question
+) {
+    if (
+    !shipment ||
+    !shipment.shipmentId
+  ) {
+    const prompt = `
+You are MediTrack AI.
 
-Shipment: ${shipment.shipmentId}
+The user has not provided a shipment ID yet.
+
+Ask them politely to provide a shipment ID so you can help analyze shipment telemetry, risks, ETA, blockchain verification, and cold-chain status.
+
+User message:
+${question}
+`;
+
+    const result =
+      await callGemini(prompt);
+
+    return (
+      result ||
+      "Please provide a shipment ID so I can assist you."
+    );
+  }
+  const lowerQ = question.toLowerCase();
+
+  const isGreeting =
+    lowerQ.includes("hi") ||
+    lowerQ.includes("hello") ||
+    lowerQ.includes("hey");
+
+  const isGeneral =
+    lowerQ.includes("who are you") ||
+    lowerQ.includes("what can you do");
+
+  let prompt = "";
+
+  if (isGreeting) {
+    prompt = `
+You are MediTrack AI.
+
+The user greeted you.
+
+Respond naturally and briefly like a professional AI logistics assistant.
+`;
+  } else if (isGeneral) {
+    prompt = `
+You are MediTrack AI.
+
+Briefly explain your capabilities as a pharmaceutical cold-chain logistics AI assistant.
+`;
+  } else {
+    prompt = `
+You are MediTrack AI.
+
+You are helping monitor a pharmaceutical shipment.
+
+IMPORTANT:
+- Answer ONLY the user's question
+- Do NOT generate full reports unless asked
+- Keep answers concise
+- Be conversational and operational
+
+SHIPMENT DATA:
+
+Shipment ID: ${shipment.shipmentId}
 Product: ${shipment.product}
 Status: ${shipment.status}
-Risk score: ${shipment.riskScore}%
-Current temp: ${shipment.currentTemp}°C (required: ${shipment.tempRange?.min}°C to ${shipment.tempRange?.max}°C)
-Progress: ${shipment.progress || 0}%
-Route: ${shipment.origin?.city || "Origin"} → ${shipment.destination?.city || "Destination"}
-ETA: ${shipment.eta || 0} minutes
-AI recommendation: ${shipment.aiRecommendation || "None"}
 
-User question: "${question}"
+Temperature:
+${shipment.currentTemp}°C
 
-Answer based on the shipment data above. Be specific and reference actual values. Keep it concise.`;
+Allowed Range:
+${shipment.tempRange?.min}°C to ${shipment.tempRange?.max}°C
+
+Risk Score:
+${shipment.riskScore}%
+
+Humidity:
+${shipment.currentHumidity || "N/A"}%
+
+Route:
+${shipment.origin?.city} → ${shipment.destination?.city}
+
+ETA:
+${shipment.eta || "Unknown"} minutes
+
+USER QUESTION:
+${question}
+
+ANSWER:
+`;
+  }
 
   const result = await callGemini(prompt);
-  return result || FALLBACK_RESPONSES.chat();
+
+  return (
+    result ||
+    "AI assistant temporarily unavailable."
+  );
 }
 
 // Alias for backward compatibility
 export const chatWithContext = async (shipment, telemetry, question) => {
   return generateChatResponse(shipment, question);
+ 
 };
 
 // === TOUCHPOINT 4: Compliance Report (on delivery) ===
-export async function generateComplianceReport(shipment, telemetry, blocks) {
-  const violationCount = telemetry?.filter((t) => t.isViolation)?.length || 0;
-  const totalReadings = telemetry?.length || 0;
-  const compliancePercent = totalReadings > 0 ? (((totalReadings - violationCount) / totalReadings) * 100).toFixed(1) : 100;
-
-  const prompt = `Generate a compliance summary for a delivered pharmaceutical shipment.
-
-Shipment: ${shipment.shipmentId}
-Product: ${shipment.product} (Batch: ${shipment.batchNumber || "N/A"})
-Route: ${shipment.origin?.city || "Origin"} → ${shipment.destination?.city || "Destination"}
-Total telemetry readings: ${totalReadings}
-Violations: ${violationCount}
-Temperature compliance: ${compliancePercent}%
-Blockchain blocks: ${blocks?.length || 0}
-Receiver signature: ${shipment.receiverSignature ? "Yes" : "No"}
-
-Include: temperature adherence summary, incident history, blockchain verification status, payment resolution, and overall compliance assessment (COMPLIANT, CONDITIONALLY COMPLIANT, or NON-COMPLIANT). Keep it under 150 words.`;
-
-  const result = await callGemini(prompt);
-  return result || FALLBACK_RESPONSES.compliance(shipment);
+export async function generateComplianceReport(
+  shipment,
+  telemetry
+) {
+  return generateComplianceSummary(
+    shipment,
+    telemetry || []
+  );
 }
 
 // === TOUCHPOINT 5: Scenario Simulator ("What-If") ===

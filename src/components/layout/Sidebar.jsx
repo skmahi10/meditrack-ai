@@ -5,6 +5,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "./ThemeProvider";
+import { useUser } from "@clerk/nextjs";
+import { useNotifications } from "@/lib/useFirestore";
 
 const navItems = [
   {
@@ -65,7 +67,7 @@ const navItems = [
       </svg>
     ),
   },
-  {
+ {
     label: "Notifications",
     href: "/dashboard/notifications",
     icon: (
@@ -74,7 +76,7 @@ const navItems = [
         <path d="M8.5 17a1.5 1.5 0 003 0" />
       </svg>
     ),
-    badge: 3,
+    badge: null,
   },
   {
     label: "Settings",
@@ -92,6 +94,9 @@ export default function Sidebar({ onCollapse })  {
   const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
+  const { user } = useUser();
+  const { notifications } = useNotifications(user?.id);
+  const unreadCount = (notifications || []).filter((n) => !n.read).length;
 
   return (
     <aside

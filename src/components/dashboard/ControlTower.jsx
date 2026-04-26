@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useShipments } from "@/lib/useFirestore";
+import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs";
+import { useShipments, useNotifications } from "@/lib/useFirestore";
 import ShipmentTable from "./ShipmentTable";
 import RiskGauge from "./RiskGauge";
 import TelemetryCharts from "./TelemetryCharts";
@@ -64,13 +65,23 @@ const statCards = (stats) => [
 ];
 
 export default function ControlTower() {
-  const { shipments: firebaseShipments, loading } = useShipments();
+  const { user } = useUser();
+  const { shipments: firebaseShipments, loading } = useShipments(user?.id);
+  const { notifications } = useNotifications(user?.id);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Use Firebase data if available, otherwise fall back to mock
   const shipments = firebaseShipments;
   const [selectedShipment, setSelectedShipment] = useState(null);
   const active = selectedShipment || shipments[0];
+  useEffect(() => {
+  if (active?.shipmentId) {
+    localStorage.setItem(
+      "activeShipmentId",
+      active.shipmentId
+    );
+  }
+}, [active]);
 
   // Calculate live stats
   const stats = {
@@ -80,7 +91,7 @@ export default function ControlTower() {
     delivered: shipments.filter((s) => s.status === "delivered").length,
   };
 
-  const unreadAlerts = [];
+  const unreadAlerts = (notifications || []).filter((n) => !n.read && n.severity === "critical");
 
   const cards = statCards(stats);
 
