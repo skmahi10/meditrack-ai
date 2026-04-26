@@ -3,6 +3,9 @@ import { useUser } from "@clerk/nextjs";
 import { useState } from "react";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import {
+  sendShipmentCreated,
+} from "@/lib/email";
 
 const products = [
   { name: "Covaxin", category: "vaccine", tempMin: -20, tempMax: -15 },
@@ -113,7 +116,12 @@ export default function CreateShipmentModal({ isOpen, onClose, onCreated }) {
         deliveredAt: null,
       };
 
-      await addDoc(collection(db, "shipments"), shipmentData);
+     await sendShipmentCreated(
+        user?.primaryEmailAddress
+          ?.emailAddress,
+
+        shipmentData
+      );
       setStep(2);
       setSuccess("Shipment " + shipmentId + " created successfully!");
 

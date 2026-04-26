@@ -1,5 +1,8 @@
 import { db } from "../../../lib/firebase-admin.js";
 import { generateIncidentReport } from "../../../lib/gemini.js";
+import {
+  sendBreachAlert,
+} from "../../../lib/email.js";
 
 export const runtime = "nodejs";
 
@@ -61,6 +64,24 @@ export async function POST(request) {
     const severity = determineSeverity(telemetry);
 
     await shipmentDoc.ref.update({ incidentReport: report });
+          await sendBreachAlert(
+        shipment.receiverEmail ||
+          "mahishaik567@gmail.com",
+
+        shipment,
+
+        {
+          temperature:
+            telemetry[
+              telemetry.length - 1
+            ]?.temperature || "N/A",
+
+          batteryLevel:
+            telemetry[
+              telemetry.length - 1
+            ]?.batteryLevel || "N/A",
+        }
+      );
 
     return Response.json({
       report,
