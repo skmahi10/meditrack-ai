@@ -1,7 +1,7 @@
 // src/app/shipment/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   collection,
@@ -21,7 +21,7 @@ import TelemetryCharts from "@/components/dashboard/TelemetryCharts";
 import RiskGauge from "@/components/dashboard/RiskGauge";
 import Link from "next/link";
 
-export default function ShipmentDetailPage() {
+function ShipmentDetailContent() {
   const searchParams = useSearchParams();
   const shipmentId = searchParams.get("id");
 
@@ -1284,5 +1284,12 @@ export default function ShipmentDetailPage() {
         }
       `}</style>
     </div>
+  );
+}
+export default function ShipmentDetailPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ShipmentDetailContent />
+    </Suspense>
   );
 }
