@@ -24,18 +24,12 @@
 </p>
 
 <p align="center">
-  <a href="#-live-url">Live URL</a> •
   <a href="#-problem-statement">Problem</a> •
   <a href="#-solution">Solution</a> •
   <a href="#-architecture">Architecture</a> •
   <a href="#-team">Team</a>
 </p>
 
----
-
-## 🌐 Live URL
-
-🔗 **[meditrack-ai.vercel.app](https://meditrack-ai.vercel.app)**
 
 ---
 
