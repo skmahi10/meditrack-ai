@@ -143,26 +143,6 @@ export default function CreateShipmentModal({ isOpen, onClose, onCreated }) {
       }
       setSimulating(false);
 
-      // Now run simulation
-      setSimulating(true);
-      try {
-        const res = await fetch("/api/simulation", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shipmentId }),
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          setSuccess("Shipment " + shipmentId + " created and simulation complete! " + data.totalBlocks + " blockchain blocks generated.");
-        } else {
-          setSuccess("Shipment " + shipmentId + " created. Simulation pending: " + (data.error || "API not ready"));
-        }
-      } catch (simErr) {
-        setSuccess("Shipment " + shipmentId + " created. Simulation will run when backend is ready.");
-      }
-      setSimulating(false);
-
       if (onCreated) onCreated();
     } catch (err) {
       setError("Failed to create shipment: " + err.message);

@@ -1,7 +1,7 @@
 // src/components/dashboard/TelemetryCharts.jsx
 "use client";
 
-import { telemetryData } from "@/lib/mockData";
+
 import {
   LineChart,
   Line,
@@ -100,7 +100,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function TelemetryCharts({ shipment }) {
-  const data = telemetryData;
+  const data = shipment?._telemetry || [];
 
   const tempMin = shipment?.tempRange?.min ?? -20;
   const tempMax = shipment?.tempRange?.max ?? -15;

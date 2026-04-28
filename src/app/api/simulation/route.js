@@ -34,6 +34,8 @@ const CITY_DATABASE = {
   "Vijayawada": { lat: 16.506, lng: 80.648 },
   "Indore": { lat: 22.72, lng: 75.858 },
   "Bhopal": { lat: 23.259, lng: 77.413 },
+  "Kota": { lat: 25.214, lng: 75.865 },
+  "Agra": { lat: 27.177, lng: 78.008 },
 };
 
 function generateRoute(origin, destination) {
@@ -65,7 +67,6 @@ function generateRoute(origin, destination) {
     { city: destination?.city || "Destination", lat: endLat, lng: endLng, progress: 100 },
   ];
 
-  // Match midpoints to nearest real cities
   route.forEach((point, idx) => {
     if (idx === 0 || idx === route.length - 1) return;
     let closest = null;
@@ -86,6 +87,56 @@ function generateRoute(origin, destination) {
   });
 
   return route;
+}
+
+// Generate a reroute path — offset from the main route midpoints
+function generateRerouteCoords(origin, destination, route) {
+  // Find a city that's off the main corridor to route through
+  const midLat = (origin.lat + destination.lat) / 2;
+  const midLng = (origin.lng + destination.lng) / 2;
+  
+  // Pick a detour city
+  let detourCity = null;
+  let bestScore = -Infinity;
+  for (const [name, coords] of Object.entries(CITY_DATABASE)) {
+    if (name === origin.city || name === destination.city) continue;
+    // Find existing route cities
+    const isOnRoute = route.some((r) => r.city === name);
+    if (isOnRoute) continue;
+    
+    const dStart = Math.sqrt(Math.pow(coords.lat - origin.lat, 2) + Math.pow(coords.lng - origin.lng, 2));
+    const dEnd = Math.sqrt(Math.pow(coords.lat - destination.lat, 2) + Math.pow(coords.lng - destination.lng, 2));
+    const dTotal = Math.sqrt(Math.pow(destination.lat - origin.lat, 2) + Math.pow(destination.lng - origin.lng, 2));
+    
+    // City should be reachable but off the direct path
+    if (dStart < dTotal * 1.2 && dEnd < dTotal * 1.2 && dStart > dTotal * 0.2) {
+      const score = dStart + dEnd; // prefer cities not too far off
+      if (score < bestScore || bestScore === -Infinity) {
+        bestScore = score;
+        detourCity = { name, lat: coords.lat, lng: coords.lng };
+      }
+    }
+  }
+
+  if (!detourCity) {
+    // Fallback: create an offset midpoint
+    const offsetLat = midLat + (Math.random() > 0.5 ? 1.5 : -1.5);
+    const offsetLng = midLng + (Math.random() > 0.5 ? 1.5 : -1.5);
+    detourCity = { name: "Detour", lat: offsetLat, lng: offsetLng };
+  }
+
+  // Reroute: from ~35% point through detour city back to ~65% point
+  const rerouteStart = positionAt(32, route);
+  const rerouteEnd = positionAt(58, route);
+
+  return {
+    via: detourCity.name,
+    coords: [
+      [rerouteStart.lat, rerouteStart.lng],
+      [detourCity.lat, detourCity.lng],
+      [rerouteEnd.lat, rerouteEnd.lng],
+    ],
+  };
 }
 
 function jsonError(message, status) {
@@ -117,29 +168,26 @@ const TELEMETRY_TIMELINE = [
   { sec: 11, temp: -17.6, hum: 45, spd: 82,  bat: 91, prog: 18 },
   { sec: 13, temp: -18.0, hum: 44, spd: 78,  bat: 90, prog: 24 },
   { sec: 15, temp: -17.4, hum: 42, spd: 45,  bat: 89, prog: 28 },
-  { sec: 17, temp: -17.7, hum: 43, spd: 22,  bat: 88, prog: 32 },
-  { sec: 19, temp: -17.2, hum: 45, spd: 65,  bat: 86, prog: 38 },
-  { sec: 20, temp: -15.0, hum: 48, spd: 55,  bat: 45, prog: 42 },
-  { sec: 22, temp: -12.0, hum: 51, spd: 40,  bat: 25, prog: 45 },
-  { sec: 24, temp: -5.0,  hum: 55, spd: 15,  bat: 15, prog: 48 },
-  { sec: 26, temp: -8.0,  hum: 53, spd: 30,  bat: 22, prog: 52 },
-  { sec: 28, temp: -14.0, hum: 49, spd: 58,  bat: 45, prog: 56 },
-  { sec: 30, temp: -17.0, hum: 46, spd: 72,  bat: 45, prog: 63 },
-  { sec: 32, temp: -17.4, hum: 44, spd: 85,  bat: 46, prog: 70 },
-  { sec: 35, temp: -17.8, hum: 43, spd: 90,  bat: 50, prog: 75 },
-  { sec: 37, temp: -17.6, hum: 42, spd: 75,  bat: 53, prog: 82 },
-  { sec: 39, temp: -17.3, hum: 43, spd: 48,  bat: 56, prog: 88 },
-  { sec: 41, temp: -17.9, hum: 44, spd: 62,  bat: 60, prog: 94 },
-  { sec: 43, temp: -17.5, hum: 43, spd: 35,  bat: 63, prog: 98 },
-  { sec: 45, temp: -17.2, hum: 42, spd: 0,   bat: 65, prog: 100 },
+  { sec: 17, temp: -17.7, hum: 43, spd: 22,  bat: 88, prog: 32 },  // ← traffic detected here
+  { sec: 19, temp: -17.2, hum: 45, spd: 15,  bat: 86, prog: 35 },  // ← rerouting, slow
+  { sec: 21, temp: -17.0, hum: 44, spd: 40,  bat: 85, prog: 38 },  // reroute active
+  { sec: 23, temp: -15.0, hum: 48, spd: 55,  bat: 45, prog: 42 },  // temp breach starts
+  { sec: 25, temp: -12.0, hum: 51, spd: 40,  bat: 25, prog: 45 },
+  { sec: 27, temp: -5.0,  hum: 55, spd: 15,  bat: 15, prog: 48 },  // worst breach
+  { sec: 29, temp: -8.0,  hum: 53, spd: 30,  bat: 22, prog: 52 },
+  { sec: 31, temp: -14.0, hum: 49, spd: 58,  bat: 45, prog: 56 },
+  { sec: 33, temp: -17.0, hum: 46, spd: 72,  bat: 45, prog: 63 },  // recovered
+  { sec: 35, temp: -17.4, hum: 44, spd: 85,  bat: 46, prog: 70 },
+  { sec: 37, temp: -17.8, hum: 43, spd: 90,  bat: 50, prog: 75 },
+  { sec: 39, temp: -17.6, hum: 42, spd: 75,  bat: 53, prog: 82 },
+  { sec: 41, temp: -17.3, hum: 43, spd: 48,  bat: 56, prog: 88 },
+  { sec: 43, temp: -17.9, hum: 44, spd: 62,  bat: 60, prog: 94 },
+  { sec: 45, temp: -17.5, hum: 43, spd: 35,  bat: 63, prog: 98 },
+  { sec: 47, temp: -17.2, hum: 42, spd: 0,   bat: 65, prog: 100 },
 ];
 
 async function getShipment(shipmentId) {
-  const snapshot = await db
-    .collection("shipments")
-    .where("shipmentId", "==", shipmentId)
-    .limit(1)
-    .get();
+  const snapshot = await db.collection("shipments").where("shipmentId", "==", shipmentId).limit(1).get();
   if (snapshot.empty) return null;
   const doc = snapshot.docs[0];
   return { ref: doc.ref, data: { id: doc.id, ...doc.data() } };
@@ -175,15 +223,20 @@ export async function POST(request) {
     const start = Date.now();
     const originalShipment = shipmentDoc.data;
 
-    // Generate dynamic route based on actual origin/destination
     const ROUTE = generateRoute(originalShipment.origin, originalShipment.destination);
     const originCity = originalShipment.origin?.city || "Origin";
     const destCity = originalShipment.destination?.city || "Destination";
 
-    // Calculate distance between origin and destination
     const distLat = (originalShipment.destination?.lat || 28.614) - (originalShipment.origin?.lat || 19.076);
     const distLng = (originalShipment.destination?.lng || 77.209) - (originalShipment.origin?.lng || 72.877);
     const totalDistance = Math.round(Math.sqrt(distLat * distLat + distLng * distLng) * 111);
+
+    // Generate reroute data
+    const rerouteData = generateRerouteCoords(
+      originalShipment.origin || { city: "Mumbai", lat: 19.076, lng: 72.877 },
+      originalShipment.destination || { city: "Delhi", lat: 28.614, lng: 77.209 },
+      ROUTE
+    );
 
     const carrier = await getUser(originalShipment.carrierId);
     const receiver = await getUser(originalShipment.receiverId);
@@ -192,7 +245,6 @@ export async function POST(request) {
     const paymentId = paymentDoc?.data().paymentId || `PAY-${shipmentId.slice(-4)}`;
     const paymentRef = paymentDoc?.ref || db.collection("payments").doc(paymentId);
 
-    // Blockchain tracking
     const lastBlock = await getLastBlock(shipmentId);
     let nextBlockNumber = lastBlock ? lastBlock.blockNumber + 1 : 1;
     let previousHash = lastBlock ? lastBlock.hash : GENESIS_PREV_HASH;
@@ -255,18 +307,10 @@ export async function POST(request) {
       if (remaining > 0) await delay(remaining * 1000);
     }
 
-    // Send email notifications
-    sendShipmentCreated(carrier?.email, originalShipment).catch(() => {});
-    sendShipmentCreated(receiver?.email, originalShipment).catch(() => {});
+sendShipmentCreated("mahishaik567@gmail.com", originalShipment).catch(() => {});
 
-    // Pre-generate AI content
     const aiPromise = (async () => {
-      const incidentContext = {
-        ...originalShipment,
-        status: "at-risk",
-        currentTemp: -5,
-        riskScore: 72,
-      };
+      const incidentContext = { ...originalShipment, status: "at-risk", currentTemp: -5, riskScore: 72 };
       const [incidentReport, aiRecommendation] = await Promise.all([
         generateIncidentReport(incidentContext, [], "TEMP_VIOLATION"),
         generateRiskRecommendation(incidentContext, []),
@@ -274,8 +318,9 @@ export async function POST(request) {
       return { incidentReport, aiRecommendation };
     })();
 
-    // Track checkpoints that have been logged
     const loggedCheckpoints = new Set();
+    let trafficDetected = false;
+    let rerouteActive = false;
 
     // ==========================================
     // PHASE 1: SHIPMENT CREATED (0-2s)
@@ -285,42 +330,25 @@ export async function POST(request) {
       currentSpeed: 58,
       distanceTotal: totalDistance,
       pickedUpAt: Timestamp.now(),
+      rerouted: false,
+      rerouteCoords: null,
+      rerouteVia: null,
     });
 
-    await writeBlock("SHIPMENT_CREATED", {
-      shipmentId,
-      product: originalShipment.product,
-      origin: originalShipment.origin,
-      destination: originalShipment.destination,
-    });
+    await writeBlock("SHIPMENT_CREATED", { shipmentId, product: originalShipment.product, origin: originalShipment.origin, destination: originalShipment.destination });
 
-    await paymentRef.set(
-      {
-        id: paymentRef.id,
-        paymentId,
-        shipmentId,
-        payerId: originalShipment.createdBy,
-        payerName: creator?.organization || "Bharat Biotech",
-        payeeId: originalShipment.carrierId,
-        payeeName: carrier?.organization || "BlueDart Pharma",
-        amount: 125000,
-        currency: "INR",
-        status: "held",
-        conditions: {
-          deliveryConfirmed: false,
-          tempCompliance: true,
-          chainVerified: false,
-          signatureReceived: false,
-        },
-        disputeReason: null,
-        disputeSeverity: null,
-        blockchainRef: null,
-        createdAt: originalShipment.createdAt || Timestamp.now(),
-        heldAt: Timestamp.now(),
-        releasedAt: null,
-      },
-      { merge: true }
-    );
+    await paymentRef.set({
+      id: paymentRef.id, paymentId, shipmentId,
+      payerId: originalShipment.createdBy,
+      payerName: creator?.organization || "Bharat Biotech",
+      payeeId: originalShipment.carrierId,
+      payeeName: carrier?.organization || "BlueDart Pharma",
+      amount: 125000, currency: "INR", status: "held",
+      conditions: { deliveryConfirmed: false, tempCompliance: true, chainVerified: false, signatureReceived: false },
+      disputeReason: null, disputeSeverity: null, blockchainRef: null,
+      createdAt: originalShipment.createdAt || Timestamp.now(),
+      heldAt: Timestamp.now(), releasedAt: null,
+    }, { merge: true });
 
     await writeBlock("PAYMENT_HELD", { paymentId, shipmentId, amount: 125000 });
     await writeBlock("SHIPMENT_PICKED_UP", { shipmentId, carrierId: originalShipment.carrierId });
@@ -329,11 +357,10 @@ export async function POST(request) {
     await writeNotification("system", "info", "Shipment tracking started", `${shipmentId} has started live cold-chain tracking.`, originalShipment.receiverId);
 
     // ==========================================
-    // PHASE 2: IN TRANSIT — telemetry points
+    // PHASE 2: IN TRANSIT — telemetry + traffic + breach
     // ==========================================
     for (const t of TELEMETRY_TIMELINE) {
       await waitUntil(t.sec);
-
       await writeTelemetry(t);
 
       const { lat, lng } = positionAt(t.prog, ROUTE);
@@ -348,88 +375,114 @@ export async function POST(request) {
         eta: Math.max(0, Math.round((1 - t.prog / 100) * 720)),
       };
 
-      // Check for checkpoint crossings dynamically
+      // Checkpoint crossings
       for (const cp of ROUTE.slice(1, -1)) {
         if (!loggedCheckpoints.has(cp.city) && t.prog >= cp.progress && t.prog < cp.progress + 5) {
           loggedCheckpoints.add(cp.city);
           await writeBlock("CHECKPOINT_CROSSED", { shipmentId, checkpoint: cp.city, lat: cp.lat, lng: cp.lng });
-          
-          // Update checkpoints array
           const currentCheckpoints = originalShipment.checkpoints || [];
           currentCheckpoints.push({ city: cp.city, lat: cp.lat, lng: cp.lng, crossedAt: Timestamp.now() });
           updateData.checkpoints = currentCheckpoints;
         }
       }
 
-      // === BREACH DETECTED at -5C ===
+      // ═══════════════════════════════════════════
+      // TRAFFIC DETECTED at ~32% (sec 17)
+      // ═══════════════════════════════════════════
+      if (t.prog === 32 && !trafficDetected) {
+        trafficDetected = true;
+        updateData.riskScore = 38;
+        updateData.riskFactors = {
+          temperature: 10,
+          delay: 55,
+          route: 45,
+          weather: 15,
+          cooling: 10,
+          transit: 40,
+        };
+
+        await writeBlock("TRAFFIC_DETECTED", {
+          shipmentId,
+          location: positionAt(32, ROUTE),
+          severity: "heavy",
+          estimatedDelay: "25 minutes",
+        });
+
+        await writeNotification("alert", "warning", "Traffic congestion detected",
+          `Heavy traffic detected on ${shipmentId} route. AI analyzing alternate paths.`,
+          originalShipment.carrierId
+        );
+      }
+
+      // ═══════════════════════════════════════════
+      // REROUTE ACTIVE at ~35% (sec 19)
+      // ═══════════════════════════════════════════
+      if (t.prog === 35 && !rerouteActive) {
+        rerouteActive = true;
+        updateData.rerouted = true;
+        updateData.rerouteCoords = JSON.stringify(rerouteData.coords);
+        updateData.rerouteVia = rerouteData.via;
+        updateData.riskScore = 30;
+        updateData.riskFactors = {
+          temperature: 10,
+          delay: 35,
+          route: 30,
+          weather: 15,
+          cooling: 10,
+          transit: 25,
+        };
+
+        await writeBlock("REROUTE_ACTIVATED", {
+        shipmentId,
+        via: rerouteData.via,
+        reason: "traffic_congestion",
+        newRoute: JSON.stringify(rerouteData.coords),
+      });
+
+        await writeNotification("system", "info", "Route optimized",
+          `${shipmentId} rerouted via ${rerouteData.via} to avoid traffic. ETA adjusted.`,
+          originalShipment.carrierId
+        );
+      }
+
+
       if (t.temp === -5.0) {
         updateData.status = "at-risk";
         updateData.riskScore = 72;
-        updateData.riskFactors = {
-          temperature: 85,
-          delay: 20,
-          route: 10,
-          weather: 15,
-          cooling: 90,
-          transit: 30,
-        };
+        updateData.riskFactors = { temperature: 85, delay: 20, route: 10, weather: 15, cooling: 90, transit: 30 };
 
         const { incidentReport, aiRecommendation } = await aiPromise;
         updateData.incidentReport = incidentReport;
         updateData.aiRecommendation = aiRecommendation;
 
-        await writeBlock("TEMP_VIOLATION", {
-          shipmentId,
-          temperature: -5,
-          threshold: originalShipment.tempRange,
-          duration: "8 seconds",
-        });
-
+        await writeBlock("TEMP_VIOLATION", { shipmentId, temperature: -5, threshold: originalShipment.tempRange, duration: "8 seconds" });
         await paymentRef.update({
           status: "on-hold",
-          conditions: {
-            deliveryConfirmed: false,
-            tempCompliance: false,
-            chainVerified: false,
-            signatureReceived: false,
-          },
+          conditions: { deliveryConfirmed: false, tempCompliance: false, chainVerified: false, signatureReceived: false },
         });
 
-        await writeNotification("alert", "critical", "Temperature breach detected", `${shipmentId} reached -5\u00B0C, outside the required ${originalShipment.tempRange?.min}\u00B0C to ${originalShipment.tempRange?.max}\u00B0C range.`, originalShipment.carrierId);
-        await writeNotification("alert", "critical", "Temperature breach detected", `${shipmentId} reached -5\u00B0C and requires receiver quality inspection.`, originalShipment.receiverId);
+        await writeNotification("alert", "critical", "Temperature breach detected", `${shipmentId} reached -5\u00B0C, outside ${originalShipment.tempRange?.min}\u00B0C to ${originalShipment.tempRange?.max}\u00B0C range.`, originalShipment.carrierId);
+        await writeNotification("alert", "critical", "Temperature breach detected", `${shipmentId} reached -5\u00B0C and requires quality inspection.`, originalShipment.receiverId);
 
-        sendBreachAlert(carrier?.email, originalShipment, { temperature: -5, batteryLevel: 15 }).catch(() => {});
-        sendBreachAlert(receiver?.email, originalShipment, { temperature: -5, batteryLevel: 15 }).catch(() => {});
+        sendBreachAlert("mahishaik567@gmail.com", originalShipment, { temperature: -5, batteryLevel: 15 }).catch(() => {});
       }
 
-      // === AI RECOMMENDATION after breach ===
+      // AI recommendation after breach
       if (t.temp === -8.0) {
         const { aiRecommendation } = await aiPromise;
-        await writeBlock("AI_RECOMMENDATION", {
-          shipmentId,
-          recommendation: aiRecommendation,
-          riskReduction: "72 to 45",
-        });
+        await writeBlock("AI_RECOMMENDATION", { shipmentId, recommendation: aiRecommendation, riskReduction: "72 to 45" });
       }
 
-      // === TEMP RECOVERED ===
-      if (t.sec === 30) {
+      // TEMP RECOVERED
+      if (t.sec === 33) {
         updateData.status = "in-transit";
         updateData.riskScore = 45;
-        updateData.riskFactors = {
-          temperature: 45,
-          delay: 20,
-          route: 10,
-          weather: 10,
-          cooling: 35,
-          transit: 25,
-        };
-
+        updateData.riskFactors = { temperature: 45, delay: 20, route: 10, weather: 10, cooling: 35, transit: 25 };
         await writeBlock("TEMP_RECOVERED", { shipmentId, temperature: -17, recoveredAt: new Date().toISOString() });
         await paymentRef.update({ status: "held" });
       }
 
-      // === DELIVERED at 100% ===
+      // DELIVERED at 100%
       if (t.prog === 100) {
         updateData.status = "delivered";
         updateData.currentSpeed = 0;
@@ -437,18 +490,11 @@ export async function POST(request) {
         updateData.receiverSignature = true;
         updateData.qrCodeUrl = `/verify/${shipmentId}`;
         updateData.deliveredAt = Timestamp.now();
-        updateData.currentLat = originalShipment.destination?.lat || endLat;
-        updateData.currentLng = originalShipment.destination?.lng || endLng;
+        updateData.rerouted = false;
+        updateData.rerouteCoords = null;
 
-        await writeBlock("DELIVERED", {
-          shipmentId,
-          receivedBy: originalShipment.receiverId,
-          temperature: -17.2,
-          condition: "accepted",
-        });
-
+        await writeBlock("DELIVERED", { shipmentId, receivedBy: originalShipment.receiverId, temperature: -17.2, condition: "accepted" });
         await writeBlock("SIGNATURE_RECEIVED", { shipmentId, signedBy: originalShipment.receiverId });
-
         await writeNotification("system", "info", "Delivery confirmed", `${shipmentId} was delivered in ${destCity} with receiver signature.`, originalShipment.receiverId);
       }
 
@@ -458,56 +504,37 @@ export async function POST(request) {
     // ==========================================
     // PHASE 3: POST-DELIVERY
     // ==========================================
-    await waitUntil(50);
+    await waitUntil(52);
 
     const { incidentReport, aiRecommendation } = await aiPromise;
     let complianceReport;
     try {
-      complianceReport = await generateComplianceReport(
-        { ...originalShipment, status: "delivered" },
-        [],
-        []
-      );
+      complianceReport = await generateComplianceReport({ ...originalShipment, status: "delivered" }, [], []);
     } catch {
-      complianceReport = `Compliance report: Shipment ${shipmentId} delivered from ${originCity} to ${destCity} with one temperature breach incident. Overall cold-chain integrity maintained.`;
+      complianceReport = `Compliance report: Shipment ${shipmentId} delivered from ${originCity} to ${destCity} with one temperature breach incident and one traffic reroute. Overall cold-chain integrity maintained.`;
     }
 
     await shipmentDoc.ref.update({ complianceReport });
 
     await paymentRef.update({
       status: "released",
-      conditions: {
-        deliveryConfirmed: true,
-        tempCompliance: true,
-        chainVerified: true,
-        signatureReceived: true,
-      },
+      conditions: { deliveryConfirmed: true, tempCompliance: true, chainVerified: true, signatureReceived: true },
       releasedAt: Timestamp.now(),
     });
 
-    await writeBlock("PAYMENT_RELEASED", {
-      paymentId,
-      shipmentId,
-      amount: 125000,
-      conditions: {
-        deliveryConfirmed: true,
-        tempCompliance: true,
-        chainVerified: true,
-        signatureReceived: true,
-      },
-    });
+    await writeBlock("PAYMENT_RELEASED", { paymentId, shipmentId, amount: 125000, conditions: { deliveryConfirmed: true, tempCompliance: true, chainVerified: true, signatureReceived: true } });
+    await writeNotification("payment", "info", "Payment released", `${paymentId} released after delivery, signature, and chain verification.`, originalShipment.createdBy);
 
-    await writeNotification("payment", "info", "Payment released", `${paymentId} was released after delivery, signature, and chain verification.`, originalShipment.createdBy);
-
-    sendDeliveryConfirmation(receiver?.email, { ...originalShipment, status: "delivered", complianceReport }).catch(() => {});
+    sendDeliveryConfirmation("mahishaik567@gmail.com", { ...originalShipment, status: "delivered", complianceReport }).catch(() => {});
 
     return Response.json({
       success: true,
-      message: `Real-time simulation complete for ${shipmentId} (${originCity} to ${destCity})`,
+      message: `Simulation complete for ${shipmentId} (${originCity} to ${destCity})`,
       totalTelemetryPoints: TELEMETRY_TIMELINE.length,
       totalBlocks: nextBlockNumber - 1,
       durationSeconds: Math.round((Date.now() - start) / 1000),
       route: ROUTE.map((r) => r.city).join(" \u2192 "),
+      rerouteVia: rerouteData.via,
     });
   } catch (error) {
     console.error("Simulation failed:", error);

@@ -359,7 +359,7 @@ export default function ControlTower() {
           </div>
         </div>
         <div style={{ padding: "20px 24px" }}>
-          <TelemetryCharts shipment={active} />
+          <TelemetryCharts shipment={{ ...active, _telemetry: [] }} />
         </div>
       </div>
 
