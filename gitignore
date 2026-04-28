@@ -28,6 +28,12 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+#json
+service-account.json
+
 # IDE
 .vscode/settings.json
 .idea/
+
+# clerk configuration (can include secrets)
+/.clerk/

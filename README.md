@@ -24,7 +24,6 @@
 </p>
 
 <p align="center">
-  <a href="#-demo">Demo Video</a> •
   <a href="#-live-url">Live URL</a> •
   <a href="#-problem-statement">Problem</a> •
   <a href="#-solution">Solution</a> •
@@ -33,10 +32,6 @@
 </p>
 
 ---
-
-## 📺 Demo
-
-▶️ **[Watch 2-Minute Demo Video on YouTube](https://youtube.com/your-demo-link)**
 
 ## 🌐 Live URL
 
@@ -247,7 +242,7 @@ After delivery, MediTrack AI generates a QR code for each shipment. Patients or 
 
 ```bash
 # Clone the repository
-git clone https://github.com/YourUsername/meditrack-ai.git
+git clone https://github.com/skmahi10/meditrack-ai.git
 cd meditrack-ai
 
 # Install dependencies
@@ -266,13 +261,37 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 ### Environment Variables
 
 ```env
+# ===========================================
+# MediTrack AI — Environment Variables
+# ===========================================
+# Copy this file as .env.local and fill in your actual values
+# Don't put values in this file, make .env.local
+# NEVER commit .env.local to GitHub
+# ===========================================
+
+# Firebase Configuration 
 NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+
+# Clerk
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_clerk_publishable_key
+CLERK_SECRET_KEY=your_secret_key
+NEXT_PUBLIC_CLERK_SIGN_IN_URL=/login
+NEXT_PUBLIC_CLERK_SIGN_UP_URL=/signup
+NEXT_PUBLIC_CLERK_SIGN_IN_FALLBACK_REDIRECT_URL=/dashboard
+NEXT_PUBLIC_CLERK_SIGN_UP_FALLBACK_REDIRECT_URL=/dashboard
+
+
 GEMINI_API_KEY=your_gemini_api_key
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_maps_api_key
+
+RESEND_API_KEY=your_resend_api_key
+
+FIREBASE_SERVICE_ACCOUNT=your_firebase_service_account
 ```
 
 ### Deployment
@@ -324,10 +343,7 @@ meditrack-ai/
 
 ## 👥 Team
 
-| Name | Role | Responsibilities |
-|---|---|---|
-| **Mahi** | Backend & Systems | Firebase setup, API routes, Gemini integration, blockchain logic, simulation engine, deployment |
-| **Faizan** | Frontend & Design | Dashboard UI, Google Maps integration, charts, animations, theme system, QR page |
+TechNites
 
 ---
 
